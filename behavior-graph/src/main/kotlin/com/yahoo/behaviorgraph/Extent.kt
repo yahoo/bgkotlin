@@ -97,4 +97,14 @@ open class Extent<SubclassType>(val graph: Graph) { //TODO restrict SubclassType
         }
         println("collectAndNameResources() time was $timeMS ms")
     }
+
+    fun behavior(): BehaviorBuilder<Extent<*>> {
+        return BehaviorBuilder(this)
+    }
+
+    fun resource(name: String? = null): Resource {
+        return Resource(this, name)
+    }
+
+
 }

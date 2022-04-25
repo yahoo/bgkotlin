@@ -6,11 +6,13 @@ package com.yahoo.behaviorgraph
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
 import java.util.HashSet
 
-open class Resource(val extent: Extent<*>, var debugName: String? = null) {
+open class Resource(val extent: Extent<*>, var debugName: String? = null): Demandable {
     val graph: Graph = extent.graph
     var added = false
     var subsequents: MutableSet<Behavior> = HashSet()
     var suppliedBy: Behavior? = null
+    override val resource get() = this
+    override val type get() = LinkType.reactive
 
     init {
         extent.addResource(this)

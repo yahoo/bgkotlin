@@ -389,7 +389,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         this.untrackedBehaviors.add(behavior)
     }
 
-    fun updateDemands(behavior: Behavior, newDemands: List<Resource>) {
+    fun updateDemands(behavior: Behavior, newDemands: List<Demandable>?) {
         if (!behavior.added) {
             throw BehaviorGraphException("Behavior must belong to graph before updating demands: $behavior")
         } else if (this.currentEvent == null) {
@@ -399,7 +399,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         this.modifiedDemandBehaviors.add(behavior)
     }
 
-    fun updateSupplies(behavior: Behavior, newSupplies: List<Resource>) {
+    fun updateSupplies(behavior: Behavior, newSupplies: List<Resource>?) {
         if (!behavior.added) {
             throw BehaviorGraphException("Behavior must belong to graph before updating supplies. Behavior=$behavior")
         }

@@ -3,4 +3,4 @@
 //
 package com.yahoo.behaviorgraph
 
-internal class Action(val impulse: String?, val block: () -> Unit)
+internal class Action(val block: (extent: Extent<*>) -> Unit, val extent: Extent<*>)

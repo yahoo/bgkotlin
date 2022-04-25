@@ -43,17 +43,16 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         lastEvent = InitialEvent
     }
 
-    //*****
-    fun actionAsync(impulse: String?, block: () -> Unit) {
-        val action = Action(impulse, block)
+    fun actionAsync(block: () -> Unit, debugName: String?) {
+        val action = Action(block, debugName)
         this.actions.addLast(action)
         if (this.currentEvent == null) {
             this.eventLoop()
         }
     }
 
-    fun action(impulse: String?, block: () -> Unit) {
-        val action = Action(impulse, block)
+    fun action(block: () -> Unit, debugName: String? = null) {
+        val action = Action(block, debugName)
         this.actions.addLast(action)
         this.eventLoop()
     }

@@ -6,15 +6,44 @@ package com.yahoo.behaviorgraph
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
 import kotlin.system.measureTimeMillis
 
-/**
- * A container for a group of related behaviors and resources
- */
-open class Extent<SubclassType>(val graph: Graph) { //TODO restrict SubclassType to subclass of Extent
+open class Extent<SubclassType>(val graph: Graph) {
     var debugName: String = javaClass.simpleName
     internal var behaviors: MutableList<Behavior> = mutableListOf()
     internal var resources: MutableList<Resource> = mutableListOf()
-    var addedToGraphWhen: Event? = null
+    var addedToGraphWhen: Long? = null
         internal set
+    var didAdd: State<Boolean>
+    var didAddBehavior: Behavior
+    var lifetime: ExtentLifetime? = null
+
+    init {
+        didAdd = State(this, false)
+        didAddBehavior = behavior().supplies(didAdd).runs { it.didAdd.update(true) }
+    }
+
+    fun unifyLifetime(extent: Extent<*>) {
+        if (lifetime == null) {
+            lifetime = ExtentLifetime(this)
+        }
+        lifetime!!.unify(extent)
+    }
+
+    fun addChildLifetime(extent: Extent<*>) {
+        if (this.lifetime == null) {
+            lifetime = ExtentLifetime(this)
+        }
+        lifetime!!.addChild(extent)
+    }
+
+    fun hasCompatibleLifetime(extent: Extent<*>): Boolean {
+        if (this == extent) {
+            return true
+        } else if (lifetime != null) {
+            return lifetime!!.hasCompatibleLifetime(extent.lifetime)
+        } else {
+            return false
+        }
+    }
 
     fun addBehavior(behavior: Behavior) {
         this.behaviors.add(behavior)
@@ -24,8 +53,10 @@ open class Extent<SubclassType>(val graph: Graph) { //TODO restrict SubclassType
         this.resources.add(resource)
     }
 
-    fun addToGraphWithAction() {
-        this.graph.action("add extent: $debugName") { this.addToGraph() }
+    fun addToGraphWithAction(debugName: String? = null) {
+        this.graph.action({
+            this.addToGraph()
+        }, debugName)
     }
 
     fun addToGraph() {
@@ -37,45 +68,21 @@ open class Extent<SubclassType>(val graph: Graph) { //TODO restrict SubclassType
         }
     }
 
-    fun removeFromGraphWithAction() {
-        this.graph.action("remove extent: $debugName") { this.removeFromGraph() }
+    fun removeFromGraphWithAction(strategy: ExtentRemoveStrategy = ExtentRemoveStrategy.extentOnly, debugName: String? = null) {
+        this.graph.action({ this.removeFromGraph(strategy) }, debugName)
     }
 
-    fun removeFromGraph() {
+    fun removeFromGraph(strategy: ExtentRemoveStrategy = ExtentRemoveStrategy.extentOnly) {
         if (graph.currentEvent != null) {
             if (addedToGraphWhen != null) {
-                graph.removeExtent(this)
+                if (strategy == ExtentRemoveStrategy.extentOnly || this.lifetime == null) {
+                    graph.removeExtent(this)
+                } else {
+                    lifetime?.getAllContainedExtents().forEach { graph.removeExtent(it) }
+                }
             }
         } else {
             throw BehaviorGraphException("removeFromGraph must be called within an event. Extent=$this")
-        }
-    }
-
-    fun makeBehavior(
-        demands: List<Resource>?,
-        supplies: List<Resource>?,
-        block: (SubclassType) -> Unit
-    ): Behavior {
-        return Behavior(this, demands, supplies, block as (Extent<*>) -> Unit)
-    }
-
-    fun sideEffect(name: String?, block: (extent: SubclassType) -> Unit) {
-        graph.sideEffect(this, name, block as (Extent<*>) -> Unit)
-    }
-
-    fun actionAsync(impulse: String?, action: () -> Unit) {
-        if (this.addedToGraphWhen != null) {
-            this.graph.actionAsync(impulse, action)
-        } else {
-            throw BehaviorGraphException("Action on extent requires it be added to the graph. Extent=$this")
-        }
-    }
-
-    fun action(impulse: String?, action: () -> Unit) {
-        if (this.addedToGraphWhen != null) {
-            this.graph.action(impulse, action)
-        } else {
-            throw BehaviorGraphException("Action on extent requires it be added to the graph. Extent=$this")
         }
     }
 
@@ -105,6 +112,35 @@ open class Extent<SubclassType>(val graph: Graph) { //TODO restrict SubclassType
     fun resource(name: String? = null): Resource {
         return Resource(this, name)
     }
+
+    fun <T> moment(name: String? = null): Moment<T> {
+        return Moment<T>(this, name)
+    }
+
+    fun <T> state(initialState: T, name: String? = null): State<T> {
+        return State<T>(this, initialState, name)
+    }
+
+    fun sideEffect(block: (ext: SubclassType) -> Unit, name: String? = null) {
+        graph.sideEffect(this, name, block as (Extent<*>) -> Unit)
+    }
+
+        fun actionAsync(impulse: String?, action: () -> Unit) {
+        if (this.addedToGraphWhen != null) {
+            this.graph.actionAsync(impulse, action)
+        } else {
+            throw BehaviorGraphException("Action on extent requires it be added to the graph. Extent=$this")
+        }
+    }
+
+    fun action(impulse: String?, action: () -> Unit) {
+        if (this.addedToGraphWhen != null) {
+            this.graph.action(impulse, action)
+        } else {
+            throw BehaviorGraphException("Action on extent requires it be added to the graph. Extent=$this")
+        }
+    }
+
 
 
 }

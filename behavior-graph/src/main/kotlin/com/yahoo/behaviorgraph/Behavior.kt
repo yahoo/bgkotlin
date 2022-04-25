@@ -8,7 +8,8 @@ class Behavior(
     var block: (Extent<*>) -> Unit
 ) : Comparable<Behavior> {
     var demands: MutableSet<Resource>? = null
-    var supplies: MutableSet<Resource>? = null
+    var orderingDemands: MutableSet<Resource>?  = null
+    var supplies: Set<Resource>? = null
     var enqueuedWhen: Long? = null
     var removedWhen: Long? = null
     internal var orderingState = OrderingState.Untracked

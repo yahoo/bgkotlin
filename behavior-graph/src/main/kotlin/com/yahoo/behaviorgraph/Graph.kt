@@ -23,13 +23,18 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     var lastEvent: Event
     private var activatedBehaviors: PriorityQueue<Behavior>
     internal var currentBehavior: Behavior? = null
-    private var effects: Deque<SideEffect>
-    private var actions: Deque<Action>
+    private var effects: ArrayDeque<RunnableSideEffect>
+    private var actions: ArrayDeque<RunnableAction>
     private var untrackedBehaviors: MutableList<Behavior>
     private var modifiedDemandBehaviors: MutableList<Behavior>
     private var modifiedSupplyBehaviors: MutableList<Behavior>
     private var updatedTransients: MutableList<Transient>
     private var needsOrdering: MutableList<Behavior>
+    private var eventLoopState: EventLoopState? = null
+    private var extentsAdded: MutableList<Extent<*>> = mutableListOf()
+    private var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
+    var validateDependencies: Boolean = true
+    var validateLifetimes: Boolean = true
 
     init {
         effects = ArrayDeque()
@@ -45,76 +50,161 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
 
     fun actionAsync(block: () -> Unit, debugName: String?) {
         val action = Action(block, debugName)
-        this.actions.addLast(action)
-        if (this.currentEvent == null) {
-            this.eventLoop()
-        }
+        asyncActionHelper(action)
     }
 
     fun action(block: () -> Unit, debugName: String? = null) {
         val action = Action(block, debugName)
-        this.actions.addLast(action)
-        this.eventLoop()
+        actionHelper(action)
+    }
+
+    internal fun actionHelper(action: RunnableAction) {
+        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.action || eventLoopState!!.phase == EventLoopPhase.updates)) {
+            throw BehaviorGraphException("Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block.")
+        }
+        actions.addLast(action)
+        eventLoop()
+    }
+
+    internal fun asyncActionHelper(action: RunnableAction) {
+        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.action || eventLoopState!!.phase == EventLoopPhase.updates)) {
+            throw BehaviorGraphException("Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block.")
+        }
+        actions.addLast(action)
+        if (currentEvent == null) {
+            eventLoop()
+        }
     }
 
     fun eventLoop() {
         while (true) {
             try {
-                if (this.activatedBehaviors.size > 0 ||
-                    this.untrackedBehaviors.size > 0 ||
-                    this.modifiedDemandBehaviors.size > 0 ||
-                    this.modifiedSupplyBehaviors.size > 0 ||
-                    this.needsOrdering.size > 0
+                if (activatedBehaviors.size > 0 ||
+                    untrackedBehaviors.size > 0 ||
+                    modifiedDemandBehaviors.size > 0 ||
+                    modifiedSupplyBehaviors.size > 0 ||
+                    needsOrdering.size > 0
                 ) {
+                    eventLoopState!!.phase = EventLoopPhase.updates
                     val sequence = this.currentEvent!!.sequence
-                    this.addUntrackedBehaviors(sequence)
-                    this.addUntrackedSupplies(sequence)
-                    this.addUntrackedDemands(sequence)
-                    this.orderBehaviors()
-                    this.runNextBehavior(sequence)
+                    addUntrackedBehaviors(sequence)
+                    addUntrackedSupplies(sequence)
+                    addUntrackedDemands(sequence)
+                    orderBehaviors()
+                    runNextBehavior(sequence)
 
                     continue
                 }
 
+                if (validateLifetimes) {
+                    if (extentsAdded.size > 0) {
+                        validateAddedExtents()
+                        extentsAdded.clear()
+                    }
+                    if (extentsRemoved.size > 0) {
+                        validateRemovedExtents()
+                        extentsRemoved.clear()
+                    }
+                }
                 if (effects.isNotEmpty()) {
                     val effect = this.effects.removeFirst()
-                    effect.block(effect.extent)
+                    eventLoopState!!.phase = EventLoopPhase.sideEffects
+                    eventLoopState!!.currentSideEffect = effect
+                    effect.runSideEffect()
+                    if (eventLoopState != null) {
+                        // side effect could create a synchronous action which would create a nested event loop
+                        // which would clear out any existing event loop states
+                        eventLoopState?.currentSideEffect = null;
+                    }
                     continue
                 }
 
                 currentEvent?.let { aCurrentEvent ->
-                    this.clearTransients()
-                    this.lastEvent = aCurrentEvent
-                    this.currentEvent = null
-                    this.currentBehavior = null
+                    clearTransients()
+                    lastEvent = aCurrentEvent
+                    currentEvent = null
+                    eventLoopState = null
+                    currentBehavior = null
                 }
 
                 if (actions.isNotEmpty()) {
                     val action = actions.removeFirst()
                     val newEvent = Event(
                         this.lastEvent.sequence + 1,
-                        platformSupport.getCurrentTimeMillis(),
-                        action.impulse
+                        platformSupport.getCurrentTimeMillis()
                     )
                     this.currentEvent = newEvent
-                    action.block()
+                    eventLoopState = EventLoopState(action)
+                    eventLoopState!!.phase = EventLoopPhase.action
+                    action.runAction()
                     continue
                 }
             } catch (e: Exception) {
                 //put graph into clean state and rethrow exception
-                this.currentEvent = null
-                this.actions.clear()
-                this.effects.clear()
-                this.currentBehavior = null
-                this.activatedBehaviors.clear()
-                this.clearTransients()
-                this.modifiedDemandBehaviors.clear()
-                this.modifiedSupplyBehaviors.clear()
-                this.untrackedBehaviors.clear()
+                currentEvent = null
+                eventLoopState = null
+                actions.clear()
+                effects.clear()
+                currentBehavior = null
+                activatedBehaviors.clear()
+                clearTransients()
+                modifiedDemandBehaviors.clear()
+                modifiedSupplyBehaviors.clear()
+                untrackedBehaviors.clear()
+                extentsAdded.clear()
+                extentsRemoved.clear()
                 throw(e)
             }
             // no more tasks so we can exit the event loop
             break
+        }
+    }
+
+    private fun validateAddedExtents() {
+        // ensure extents with same lifetime also got added
+        val needAdding: MutableSet<Extent<*>> = mutableSetOf()
+        for (added in extentsAdded) {
+            if (added.lifetime != null) {
+                for (ext in added.lifetime!!.getAllContainingExtents()) {
+                    if (ext.addedToGraphWhen == null) {
+                        needAdding.add(ext)
+                    }
+                }
+            }
+        }
+        if (needAdding.size > 0) {
+            throw BehaviorGraphException("All extents with unified or parent lifetimes must be added during the same event. Extents=$needAdding")
+        }
+    }
+
+    private fun validateRemovedExtents() {
+        // validate extents with contained lifetimes are also removed
+        val needRemoving: MutableSet<Extent<*>> = mutableSetOf()
+        for (removed in extentsRemoved) {
+            if (removed.lifetime != null) {
+                for (ext in removed.lifetime!!.getAllContainedExtents()) {
+                    if (ext.addedToGraphWhen != null) {
+                        needRemoving.add(ext)
+                    }
+                }
+            }
+        }
+        if (needRemoving.size > 0) {
+            throw BehaviorGraphException("All extents with unified or child lifetimes must be removed during the same event. Extents=$needRemoving")
+        }
+
+        // validate removed resources are not still linked to remaining behaviors
+        for (removed in extentsRemoved) {
+            for (resource in removed.resources) {
+                for (demandedBy in resource.subsequents) {
+                    if (demandedBy.extent.addedToGraphWhen != null) {
+                        throw BehaviorGraphException("Remaining behaviors must remove dynamicDemands to removed resources. Behavior=$demandedBy Resource=$resource")
+                    }
+                }
+                if (resource.suppliedBy != null && resource.suppliedBy!!.extent.addedToGraphWhen != null) {
+                    throw BehaviorGraphException("Remaining behaviors must remove dynamicSupplies to removed resources. Remaining Behavior=${resource.suppliedBy} Removed resource=$resource")
+                }
+            }
         }
     }
 
@@ -126,13 +216,19 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     }
 
     internal fun trackTransient(resource: Transient) {
-        this.updatedTransients.add(resource)
+        updatedTransients.add(resource)
     }
 
     internal fun resourceTouched(resource: Resource) {
         this.currentEvent?.let { aCurrentEvent ->
+            if (eventLoopState != null && eventLoopState!!.phase == EventLoopPhase.action) {
+                eventLoopState!!.actionUpdates.add(resource)
+            }
             for (subsequent in resource.subsequents) {
-                this.activateBehavior(subsequent, aCurrentEvent.sequence)
+                val isOrderingDemand = subsequent.orderingDemands != null && subsequent.orderingDemands!!.contains(resource)
+                if (!isOrderingDemand) {
+                    activateBehavior(subsequent, aCurrentEvent.sequence)
+                }
             }
         }
     }
@@ -140,48 +236,68 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     private fun activateBehavior(behavior: Behavior, sequence: Long) {
         if (behavior.enqueuedWhen == null || behavior.enqueuedWhen!! < sequence) {
             behavior.enqueuedWhen = sequence
-            //note addLast() versus the javascript push(), which here would add first and in javascript appends
-            this.activatedBehaviors.add(behavior)
+            activatedBehaviors.add(behavior)
         }
     }
 
     private fun runNextBehavior(sequence: Long) {
-        if (this.activatedBehaviors.isEmpty()) {
+        if (activatedBehaviors.isEmpty()) {
             return
         }
-        val behavior = this.activatedBehaviors.remove()
+        val behavior = activatedBehaviors.remove()
         if (behavior.removedWhen != sequence) {
-            this.currentBehavior = behavior
-            behavior.block(behavior.extent!!)
-            this.currentBehavior = null
+            currentBehavior = behavior
+            behavior.block(behavior.extent)
+            currentBehavior = null
         }
     }
 
-    internal fun sideEffect(extent: Extent<*>, name: String?, block: (extent: Extent<*>) -> Unit) {
+    fun sideEffect(block: () -> Unit, debugName: String? = null) {
+        sideEffectHelper(SideEffect(block, currentBehavior, debugName))
+    }
+
+    internal fun sideEffectHelper(sideEffect: RunnableSideEffect) {
         if (this.currentEvent == null) {
             throw BehaviorGraphException("Effects can only be added during an event loop.")
+        } else if (eventLoopState!!.phase == EventLoopPhase.sideEffects) {
+            throw BehaviorGraphException("Nested side effects are disallowed.")
         } else {
-            this.effects.addLast(SideEffect(name, block, extent))
+            this.effects.addLast(sideEffect)
         }
+
     }
 
     private fun addUntrackedBehaviors(sequence: Long) {
-        for (behavior in this.untrackedBehaviors) {
-            this.activateBehavior(behavior, sequence)
-            this.modifiedDemandBehaviors.add(behavior)
-            this.modifiedSupplyBehaviors.add(behavior)
+        for (behavior in untrackedBehaviors) {
+            activateBehavior(behavior, sequence)
+            modifiedDemandBehaviors.add(behavior)
+            modifiedSupplyBehaviors.add(behavior)
         }
-        this.untrackedBehaviors.clear()
+        untrackedBehaviors.clear()
     }
 
-    //Note: parameter sequence not used. We'll keep because typescript uses it.
-    private fun addUntrackedSupplies(sequence: Long) {
+    private fun addUntrackedSupplies() {
         modifiedSupplyBehaviors.forEach { behavior ->
             behavior.untrackedSupplies?.let { behaviorUntrackedSupplies ->
                 behavior.supplies?.forEach { existingSupply ->
-                    existingSupply.suppliedBy = null
+                    if (validateLifetimes && !behavior.extent.hasCompatibleLifetime(existingSupply.extent)) {
+                        throw BehaviorGraphException("Static supplies can only be with extents with the unified or parent lifetimes. Supply=$existingSupply")
+                    }
                 }
-                behavior.supplies = HashSet(behaviorUntrackedSupplies)
+
+                val allUntrackedSupplies: MutableSet<Resource> = mutableSetOf()
+                if (behavior.untrackedSupplies != null) {
+                    allUntrackedSupplies.addAll(behavior.untrackedSupplies!!)
+                }
+                behavior.untrackedSupplies = null
+                if (behavior.untrackedDynamicSupplies != null) {
+                    allUntrackedSupplies.addAll(behavior.untrackedDynamicSupplies!!)
+                }
+                behavior.untrackedDynamicSupplies = null
+
+                behavior.supplies?.forEach { it.suppliedBy = null }
+
+                behavior.supplies = allUntrackedSupplies
                 behavior.supplies?.forEach { newSupply: Resource ->
                     if (newSupply.suppliedBy != null && newSupply.suppliedBy !== behavior) {
                         throw ResourceCannotBeSuppliedByMoreThanOneBehaviorException(
@@ -192,11 +308,14 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                     }
                     newSupply.suppliedBy = behavior
                 }
-                behavior.untrackedSupplies = null
+
                 // technically this doesn't need reordering but its subsequents will
                 // setting this to reorder will also adjust its subsequents if necessary
                 // in the sortDFS code
-                this.needsOrdering.add(behavior)
+                if (behavior.orderingState != OrderingState.NeedsOrdering) {
+                    behavior.orderingState = OrderingState.NeedsOrdering
+                    this.needsOrdering.add(behavior)
+                }
             }
         }
         this.modifiedSupplyBehaviors.clear()

@@ -78,7 +78,7 @@ open class Extent<SubclassType>(val graph: Graph) {
                 if (strategy == ExtentRemoveStrategy.extentOnly || this.lifetime == null) {
                     graph.removeExtent(this)
                 } else {
-                    lifetime?.getAllContainedExtents().forEach { graph.removeExtent(it) }
+                    lifetime?.getAllContainedExtents()?.forEach { graph.removeExtent(it) }
                 }
             }
         } else {
@@ -91,18 +91,15 @@ open class Extent<SubclassType>(val graph: Graph) {
      * future: move to platformSupport since this is not portable beyond the jvm
      */
     private fun nameResources() {
-        val timeMS = measureTimeMillis {
-            javaClass.declaredFields.forEach { field ->
-                if (field.type == Resource::class.java) {
-                    val resource = field.get(this) as Resource
-                    if (resource.debugName == null) {
-                        println("setting debugName for ${field.name}")
-                        resource.debugName = field.name
-                    }
+        javaClass.declaredFields.forEach { field ->
+            if (field.type == Resource::class.java) {
+                val resource = field.get(this) as Resource
+                if (resource.debugName == null) {
+                    println("setting debugName for ${field.name}")
+                    resource.debugName = field.name
                 }
             }
         }
-        println("collectAndNameResources() time was $timeMS ms")
     }
 
     fun behavior(): BehaviorBuilder<Extent<*>> {
@@ -121,24 +118,19 @@ open class Extent<SubclassType>(val graph: Graph) {
         return State<T>(this, initialState, name)
     }
 
-    fun sideEffect(block: (ext: SubclassType) -> Unit, name: String? = null) {
-        graph.sideEffect(this, name, block as (Extent<*>) -> Unit)
+    fun sideEffect(block: (ext: SubclassType) -> Unit, debugName: String? = null) {
+        val sideEffect = ExtentSideEffect(block as (Extent<*>) -> Unit, this, this.graph.currentBehavior, debugName)
+        graph.sideEffectHelper(sideEffect)
     }
 
-        fun actionAsync(impulse: String?, action: () -> Unit) {
-        if (this.addedToGraphWhen != null) {
-            this.graph.actionAsync(impulse, action)
-        } else {
-            throw BehaviorGraphException("Action on extent requires it be added to the graph. Extent=$this")
-        }
+    fun actionAsync(action: (ext: SubclassType) -> Unit, debugName: String? = null) {
+        val action = ExtentAction(action as (Extent<*>) -> Unit, this, debugName)
+        graph.asyncActionHelper(action)
     }
 
-    fun action(impulse: String?, action: () -> Unit) {
-        if (this.addedToGraphWhen != null) {
-            this.graph.action(impulse, action)
-        } else {
-            throw BehaviorGraphException("Action on extent requires it be added to the graph. Extent=$this")
-        }
+    fun action(action: (ext: SubclassType) -> Unit, debugName: String? = null) {
+        val action = ExtentAction(action as (Extent<*>) -> Unit, this, debugName)
+        graph.actionHelper(action)
     }
 
 

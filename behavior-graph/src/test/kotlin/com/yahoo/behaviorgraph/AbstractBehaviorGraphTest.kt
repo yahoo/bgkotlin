@@ -10,11 +10,15 @@ import kotlin.reflect.KClass
 
 abstract class AbstractBehaviorGraphTest
 {
-    class TestExtent(g: Graph) : Extent<TestExtent>(g)
+    class TestExtent(g: Graph) : Extent(g)
+
+    class OtherExtent(val g: Graph) : Extent by myextent {
+        val myextent: Extent = Extent(g)
+    }
 
     lateinit var g: Graph
     protected lateinit var setupExt: TestExtent
-    lateinit var ext: Extent<Extent>
+    lateinit var ext: Extent
     lateinit var r_a: State<Long>
     lateinit var r_b: State<Long>
     lateinit var r_c: State<Long>

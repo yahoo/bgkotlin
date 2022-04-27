@@ -4,8 +4,8 @@
 package com.yahoo.behaviorgraph
 
 class Behavior(
-    val extent: Extent<*>, demands: List<Demandable>?, supplies: List<Resource>?,
-    var block: (Extent<*>) -> Unit
+    val extent: Extent, demands: List<Demandable>?, supplies: List<Resource>?,
+    var block: (Extent) -> Unit
 ) : Comparable<Behavior> {
     var demands: MutableSet<Resource>? = null
     var orderingDemands: MutableSet<Resource>?  = null

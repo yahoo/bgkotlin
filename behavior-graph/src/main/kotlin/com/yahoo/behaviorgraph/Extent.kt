@@ -6,36 +6,36 @@ package com.yahoo.behaviorgraph
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
 import kotlin.system.measureTimeMillis
 
-open class Extent<SubclassType>(val graph: Graph) {
+open class Extent(val graph: Graph) {
     var debugName: String = javaClass.simpleName
     internal var behaviors: MutableList<Behavior> = mutableListOf()
     internal var resources: MutableList<Resource> = mutableListOf()
     var addedToGraphWhen: Long? = null
         internal set
     var didAdd: State<Boolean>
-    var didAddBehavior: Behavior
-    var lifetime: ExtentLifetime? = null
+    internal var didAddBehavior: Behavior
+    internal var lifetime: ExtentLifetime? = null
 
     init {
         didAdd = State(this, false)
         didAddBehavior = behavior().supplies(didAdd).runs { it.didAdd.update(true) }
     }
 
-    fun unifyLifetime(extent: Extent<*>) {
+    fun unifyLifetime(extent: Extent) {
         if (lifetime == null) {
             lifetime = ExtentLifetime(this)
         }
         lifetime!!.unify(extent)
     }
 
-    fun addChildLifetime(extent: Extent<*>) {
+    fun addChildLifetime(extent: Extent) {
         if (this.lifetime == null) {
             lifetime = ExtentLifetime(this)
         }
         lifetime!!.addChild(extent)
     }
 
-    fun hasCompatibleLifetime(extent: Extent<*>): Boolean {
+    internal fun hasCompatibleLifetime(extent: Extent): Boolean {
         if (this == extent) {
             return true
         } else if (lifetime != null) {
@@ -45,11 +45,11 @@ open class Extent<SubclassType>(val graph: Graph) {
         }
     }
 
-    fun addBehavior(behavior: Behavior) {
+    internal fun addBehavior(behavior: Behavior) {
         this.behaviors.add(behavior)
     }
 
-    fun addResource(resource: Resource) {
+    internal fun addResource(resource: Resource) {
         this.resources.add(resource)
     }
 
@@ -102,10 +102,6 @@ open class Extent<SubclassType>(val graph: Graph) {
         }
     }
 
-    fun behavior(): BehaviorBuilder<Extent<*>> {
-        return BehaviorBuilder(this)
-    }
-
     fun resource(name: String? = null): Resource {
         return Resource(this, name)
     }
@@ -117,24 +113,23 @@ open class Extent<SubclassType>(val graph: Graph) {
     fun <T> state(initialState: T, name: String? = null): State<T> {
         return State<T>(this, initialState, name)
     }
-
-    fun sideEffect(block: (ext: SubclassType) -> Unit, debugName: String? = null) {
-        val sideEffect = ExtentSideEffect(block as (Extent<*>) -> Unit, this, this.graph.currentBehavior, debugName)
-        graph.sideEffectHelper(sideEffect)
-    }
-
-    fun actionAsync(action: (ext: SubclassType) -> Unit, debugName: String? = null) {
-        val action = ExtentAction(action as (Extent<*>) -> Unit, this, debugName)
-        graph.asyncActionHelper(action)
-    }
-
-    fun action(action: (ext: SubclassType) -> Unit, debugName: String? = null) {
-        val action = ExtentAction(action as (Extent<*>) -> Unit, this, debugName)
-        graph.actionHelper(action)
-    }
 }
 
-fun <T: Extent<*>> T.action2(action: (ext: T) -> Unit, debugName: String? = null) {
-    val action = ExtentAction(action as (Extent<*>) -> Unit, this, debugName)
-    this.graph.actionHelper(action)
+fun <T: Extent> T.behavior(): BehaviorBuilder<T> {
+    return BehaviorBuilder(this)
+}
+
+fun <T: Extent> T.sideEffect(block: (ext: T) -> Unit, debugName: String? = null) {
+    val sideEffect = ExtentSideEffect(block as (Extent) -> Unit, this, this.graph.currentBehavior, debugName)
+    graph.sideEffectHelper(sideEffect)
+}
+
+fun <T: Extent> T.actionAsync(action: (ext: T) -> Unit, debugName: String? = null) {
+    val action = ExtentAction(action as (Extent) -> Unit, this, debugName)
+    graph.asyncActionHelper(action)
+}
+
+fun <T: Extent> T.action(action: (ext: T) -> Unit, debugName: String? = null) {
+    val action = ExtentAction(action as (Extent) -> Unit, this, debugName)
+    graph.actionHelper(action)
 }

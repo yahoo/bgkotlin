@@ -6,7 +6,7 @@ package com.yahoo.behaviorgraph
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
 import java.util.HashSet
 
-open class Resource(val extent: Extent<*>, var debugName: String? = null): Demandable {
+open class Resource(val extent: Extent, var debugName: String? = null): Demandable {
     val graph: Graph = extent.graph
     var subsequents: MutableSet<Behavior> = mutableSetOf()
     var suppliedBy: Behavior? = null

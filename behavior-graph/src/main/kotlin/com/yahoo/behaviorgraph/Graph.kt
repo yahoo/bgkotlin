@@ -17,10 +17,13 @@ import java.util.PriorityQueue
 import kotlin.math.max
 
 class Graph constructor(private var platformSupport: PlatformSupport = PlatformSupport.platformSupport) {
-    internal var currentEvent: Event? = null
+    var currentEvent: Event? = null
+        private set
     var lastEvent: Event
+        private set
     private var activatedBehaviors: PriorityQueue<Behavior>
-    internal var currentBehavior: Behavior? = null
+    var currentBehavior: Behavior? = null
+        private set
     private var effects: ArrayDeque<RunnableSideEffect>
     private var actions: ArrayDeque<RunnableAction>
     private var untrackedBehaviors: MutableList<Behavior>
@@ -29,8 +32,8 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     private var updatedTransients: MutableList<Transient>
     private var needsOrdering: MutableList<Behavior>
     private var eventLoopState: EventLoopState? = null
-    private var extentsAdded: MutableList<Extent<*>> = mutableListOf()
-    private var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
+    private var extentsAdded: MutableList<Extent> = mutableListOf()
+    private var extentsRemoved: MutableList<Extent> = mutableListOf()
     var validateDependencies: Boolean = true
     var validateLifetimes: Boolean = true
 
@@ -74,7 +77,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         }
     }
 
-    fun eventLoop() {
+    private fun eventLoop() {
         while (true) {
             try {
                 if (activatedBehaviors.size > 0 ||
@@ -160,7 +163,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
 
     private fun validateAddedExtents() {
         // ensure extents with same lifetime also got added
-        val needAdding: MutableSet<Extent<*>> = mutableSetOf()
+        val needAdding: MutableSet<Extent> = mutableSetOf()
         for (added in extentsAdded) {
             if (added.lifetime != null) {
                 for (ext in added.lifetime!!.getAllContainingExtents()) {
@@ -177,7 +180,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
 
     private fun validateRemovedExtents() {
         // validate extents with contained lifetimes are also removed
-        val needRemoving: MutableSet<Extent<*>> = mutableSetOf()
+        val needRemoving: MutableSet<Extent> = mutableSetOf()
         for (removed in extentsRemoved) {
             if (removed.lifetime != null) {
                 for (ext in removed.lifetime!!.getAllContainedExtents()) {
@@ -528,7 +531,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         this.untrackedBehaviors.add(behavior)
     }
 
-    fun updateDemands(behavior: Behavior, newDemands: List<Demandable>?) {
+    internal fun updateDemands(behavior: Behavior, newDemands: List<Demandable>?) {
         if (behavior.extent.addedToGraphWhen == null) {
             throw BehaviorGraphException("Behavior must belong to graph before updating demands: $behavior")
         } else if (currentEvent == null) {
@@ -538,7 +541,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         modifiedDemandBehaviors.add(behavior)
     }
 
-    fun updateSupplies(behavior: Behavior, newSupplies: List<Resource>?) {
+    internal fun updateSupplies(behavior: Behavior, newSupplies: List<Resource>?) {
         if (behavior.extent.addedToGraphWhen == null) {
             throw BehaviorGraphException("Behavior must belong to graph before updating supplies. Behavior=$behavior")
         } else if (currentEvent == null) {
@@ -581,7 +584,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         behavior.removedWhen = sequence
     }
 
-    fun addExtent(extent: Extent<*>) {
+    internal fun addExtent(extent: Extent) {
         if (extent.addedToGraphWhen != null) {
             throw BehaviorGraphException("Extent $extent has already been added to the graph: ${extent.graph}")
         }
@@ -610,7 +613,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         }
     }
 
-    fun removeExtent(extent: Extent<*>) {
+    internal fun removeExtent(extent: Extent) {
         if (currentEvent == null) {
             throw BehaviorGraphException("Extents can only be removed during an event.")
         }

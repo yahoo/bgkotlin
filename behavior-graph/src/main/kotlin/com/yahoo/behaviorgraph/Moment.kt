@@ -5,7 +5,7 @@ package com.yahoo.behaviorgraph
 
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
 
-class Moment<T>(extent: Extent<*>, debugName: String? = null) : Resource(extent, debugName),
+class Moment<T>(extent: Extent, debugName: String? = null) : Resource(extent, debugName),
     Transient {
     private var _happened = false
     private var _happenedValue: T? = null

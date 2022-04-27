@@ -13,7 +13,7 @@ internal class SideEffect(val block: () -> Unit, val behavior: Behavior?, val de
     }
 }
 
-internal class ExtentSideEffect(val block: (ext: Extent<*>) -> Unit, val extent: Extent<*>, val behavior: Behavior?, val debugName: String? = null): RunnableSideEffect {
+internal class ExtentSideEffect(val block: (ext: Extent) -> Unit, val extent: Extent, val behavior: Behavior?, val debugName: String? = null): RunnableSideEffect {
     override fun runSideEffect() {
         block(extent)
     }

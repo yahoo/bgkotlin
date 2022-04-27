@@ -1,6 +1,6 @@
 package com.yahoo.behaviorgraph
 
-class BehaviorBuilder<T: Extent<*>>(
+class BehaviorBuilder<T: Extent>(
     val extent: T
 ) {
     var untrackedDemands: MutableList<Demandable> = mutableListOf()
@@ -46,7 +46,7 @@ class BehaviorBuilder<T: Extent<*>>(
             }
         }
 
-        val mainBehavior = Behavior(extent, untrackedDemands, untrackedSupplies, block as (Extent<*>) -> Unit)
+        val mainBehavior = Behavior(extent, untrackedDemands, untrackedSupplies, block as (Extent) -> Unit)
 
         if (dynamicDemandSwitches != null) {
             var supplies: List<Resource>? = null

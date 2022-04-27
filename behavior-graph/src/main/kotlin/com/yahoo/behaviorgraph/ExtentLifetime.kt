@@ -1,13 +1,14 @@
 package com.yahoo.behaviorgraph
 
+import com.yahoo.behaviorgraph.exception.BehaviorGraphException
 import com.yahoo.behaviorgraph.exception.ChildLifetimeCannotBeParent
 import com.yahoo.behaviorgraph.exception.SameLifetimeMustBeEstablishedBeforeAddingToGraph
 
-class ExtentLifetime(
-    extent: Extent<*>
+internal class ExtentLifetime(
+    extent: Extent
 ){
     var addedToGraphWhen: Long? = null
-    val extents: MutableSet<Extent<*>> = mutableSetOf()
+    val extents: MutableSet<Extent> = mutableSetOf()
     var children: MutableSet<ExtentLifetime>? = null
     var parent: ExtentLifetime? = null
 
@@ -18,7 +19,7 @@ class ExtentLifetime(
         }
     }
 
-    fun unify(extent: Extent<*>) {
+    fun unify(extent: Extent) {
         if (extent.addedToGraphWhen != null) {
             val err = SameLifetimeMustBeEstablishedBeforeAddingToGraph(extent)
             throw err
@@ -35,7 +36,7 @@ class ExtentLifetime(
         }
     }
 
-    fun addChild(extent: Extent<*>) {
+    fun addChild(extent: Extent) {
         if (extent.lifetime == null) {
             extent.lifetime = ExtentLifetime(extent)
         }
@@ -46,7 +47,7 @@ class ExtentLifetime(
         var myLifetime: ExtentLifetime? = this
         while (myLifetime != null) {
             if (myLifetime == lifetime) {
-                val err = ChildLifetimeCannotBeParent(lifetime)
+                val err = BehaviorGraphException("Extent lifetime cannot be a child of itself")
                 throw err
             }
             myLifetime = myLifetime.parent
@@ -71,15 +72,15 @@ class ExtentLifetime(
         return false
     }
 
-    fun getAllContainedExtents(): List<Extent<*>> {
-        val resultExtents = mutableListOf<Extent<*>>()
+    fun getAllContainedExtents(): List<Extent> {
+        val resultExtents = mutableListOf<Extent>()
         resultExtents.addAll(extents)
         children?.forEach { extents.addAll(it.getAllContainedExtents()) }
         return resultExtents
     }
 
-    fun getAllContainingExtents(): List<Extent<*>> {
-        val resultExtents = mutableListOf<Extent<*>>()
+    fun getAllContainingExtents(): List<Extent> {
+        val resultExtents = mutableListOf<Extent>()
         resultExtents.addAll(extents)
         parent?.let { resultExtents.addAll(it.getAllContainingExtents()) }
         return resultExtents

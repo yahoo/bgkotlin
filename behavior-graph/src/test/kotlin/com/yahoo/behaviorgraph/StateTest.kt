@@ -97,6 +97,21 @@ class StateTest : AbstractBehaviorGraphTest() {
         // |> Then state is updated
         assertEquals(1, sr1.value)
     }
+
+    @Test
+    fun whatever() {
+        val sr1 = ext.state(1, "sr1")
+
+        setupExt.behavior().runs {  }
+
+        ext.behavior()
+            .runs {
+                "that works?"
+            }
+
+        setupExt.behavior()
+            .runs {  }
+    }
 /*
     @Test
     fun `works as demand and supply`() {

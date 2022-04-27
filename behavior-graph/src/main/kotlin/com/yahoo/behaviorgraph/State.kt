@@ -5,7 +5,7 @@ package com.yahoo.behaviorgraph
 
 import com.yahoo.behaviorgraph.Event.Companion.InitialEvent
 
-class State<T>(extent: Extent<*>, initialState: T, debugName: String? = null) :
+class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
     Resource(extent, debugName),
     Transient {
     private var currentState = StateHistory(initialState, InitialEvent)

@@ -7,6 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class DependenciesTest: AbstractBehaviorGraphTest() {
+    /*
     @Test
     fun `a Activates b`() {
         ext.makeBehavior(listOf(r_a), listOf(r_b)) {
@@ -73,5 +74,5 @@ class DependenciesTest: AbstractBehaviorGraphTest() {
 
         assertEquals(33L, parent_r2.value)
     }
-
+*/
 }

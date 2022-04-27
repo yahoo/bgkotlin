@@ -132,7 +132,9 @@ open class Extent<SubclassType>(val graph: Graph) {
         val action = ExtentAction(action as (Extent<*>) -> Unit, this, debugName)
         graph.actionHelper(action)
     }
+}
 
-
-
+fun <T: Extent<*>> T.action2(action: (ext: T) -> Unit, debugName: String? = null) {
+    val action = ExtentAction(action as (Extent<*>) -> Unit, this, debugName)
+    this.graph.actionHelper(action)
 }

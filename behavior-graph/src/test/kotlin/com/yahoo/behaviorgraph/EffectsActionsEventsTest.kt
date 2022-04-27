@@ -11,6 +11,7 @@ import org.junit.Test
 
 // from typescript describe('Effects, Actions, Events')
 class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
+    /*
     @Test
     fun `happen after all behaviors`() {
         var happened = false
@@ -287,5 +288,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
         r1.updateWithAction(1, true)
         assertEquals(99, r1.event.timestamp)
     }
+
+     */
 }
 

@@ -14,7 +14,7 @@ abstract class AbstractBehaviorGraphTest
 
     lateinit var g: Graph
     protected lateinit var setupExt: TestExtent
-    lateinit var ext: TestExtent
+    lateinit var ext: Extent<Extent>
     lateinit var r_a: State<Long>
     lateinit var r_b: State<Long>
     lateinit var r_c: State<Long>
@@ -49,10 +49,10 @@ abstract class AbstractBehaviorGraphTest
 
         g = Graph()
         setupExt = TestExtent(g)
-        ext = TestExtent(g)
-        r_a = State(setupExt, 0, "r_a")
-        r_b = State(setupExt, 0, "r_b")
-        r_c = State(setupExt, 0, "r_c")
+        ext = Extent(g)
+        r_a = setupExt.state(0, "r_a")
+        r_b = setupExt.state( 0, "r_b")
+        r_c = setupExt.state(0, "r_c")
         setupExt.addToGraphWithAction()
     }
 

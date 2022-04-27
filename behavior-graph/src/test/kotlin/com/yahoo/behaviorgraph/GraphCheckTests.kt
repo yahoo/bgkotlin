@@ -14,6 +14,7 @@ import org.junit.Test
 import org.robolectric.util.ReflectionHelpers
 
 class GraphCheckTests : AbstractBehaviorGraphTest() {
+    /*
     @Test(expected = BehaviorGraphException::class)
     fun `check cannot add extent to graph outside event loop`() {
         g.addExtent(ext)
@@ -169,6 +170,8 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
         // |> Then behaviors from that extent aren't waiting to be added
         assertEquals(0, (ReflectionHelpers.getField(g, "untrackedBehaviors") as Collection<*>).size)
     }
+    
+     */
 }
 
 class SideEffectError : Exception()

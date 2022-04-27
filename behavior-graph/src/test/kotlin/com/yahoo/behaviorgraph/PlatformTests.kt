@@ -30,6 +30,7 @@ class PlatformTests : AbstractBehaviorGraphTest() {
         }
     }
 
+    /*
     @Test
     fun updateSetsValueOnEvent() {
         g.action("test") { r_a.update(1, true) }
@@ -37,4 +38,6 @@ class PlatformTests : AbstractBehaviorGraphTest() {
         Assert.assertEquals(1L, r_a.value)
         Assert.assertEquals("test", r_a.event.impulse)
     }
+
+     */
 }

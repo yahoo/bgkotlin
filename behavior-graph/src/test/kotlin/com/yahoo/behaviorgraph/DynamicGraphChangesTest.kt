@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
+    /*
     @Test
     fun `added behaviors are run`() {
         ext.makeBehavior(null, listOf(r_b)) {
@@ -226,4 +227,6 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         // b_a now is subsequent to b_b
         assertEquals(3, r_y.value)
     }
+
+     */
 }

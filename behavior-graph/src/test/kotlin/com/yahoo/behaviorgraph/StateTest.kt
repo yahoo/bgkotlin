@@ -15,7 +15,8 @@ class StateTest : AbstractBehaviorGraphTest() {
     @Test
     fun `initial state`() {
         // |> When we create a new state resource
-        val sr1 = State<Long>(ext, 1, "sr1")
+        val sr1 = ext.state<Long>(1, "sr1")
+
         // |> It has an initial value
         assertEquals(1, sr1.value)
     }
@@ -23,10 +24,11 @@ class StateTest : AbstractBehaviorGraphTest() {
     @Test
     fun updates() {
         // |> Given a state in the graph
-        val sr1 = State<Long>(ext, 1, "sr1")
+        val sr1 = ext.state(1,"sr1")
         ext.addToGraphWithAction()
+
         // |> When it is updated
-        sr1.updateWithAction(2, false)
+        sr1.updateWithAction(2)
 
         assertEquals(2, sr1.value)
         assertEquals(g.lastEvent, sr1.event)
@@ -35,28 +37,48 @@ class StateTest : AbstractBehaviorGraphTest() {
     @Test
     fun `filters duplicates`() {
         // |> Given a state in the graph
-        val sr1 = State<Long>(ext, 1, "sr1")
+        val sr1 = ext.state<Long>(1, "sr1")
         ext.addToGraphWithAction()
         // |> When updated with same value and filtering on
         val entered = sr1.event
-        sr1.updateWithAction(1, true)
+        sr1.updateWithAction(1)
+
         // |> Then update doesn't happen
         assertNotEquals(g.lastEvent, sr1.event)
         assertEquals(entered, sr1.event)
     }
 
     @Test
+    fun `can override duplicate filter`() {
+        // |> Given a state in the graph
+        val sr1 = ext.state<Long>(1, "sr1");
+        ext.addToGraphWithAction();
+
+        // |> When updated with same value and filtering off
+        val entered = sr1.event;
+        g.action({
+            sr1.updateForce(1);
+        })
+
+        // |> Then update does happen
+        assertEquals(sr1.event, g.lastEvent)
+    }
+
+    @Test
     fun `can be a nullable state`() {
         // Motivation: nullable states are useful for modeling false/true with data
         // |> Given a nullable state
-        val sr1 = State<Int?>(ext, null, "sr1")
+        val sr1 = ext.state<Int?>(null, "sr1")
         ext.addToGraphWithAction()
+
         // |> When updated
-        sr1.updateWithAction(1, false)
+        sr1.updateWithAction(1)
+
         // |> Then it will have that new state
         assertEquals(1, sr1.value)
+
         // |> And updated to null
-        sr1.updateWithAction(null, false)
+        sr1.updateWithAction(null)
         // |> Then it will have null state
         assertNull(sr1.value)
     }
@@ -64,16 +86,18 @@ class StateTest : AbstractBehaviorGraphTest() {
     @Test
     fun `works in action`() {
         // |> Given a state
-        val sr1 = State<Int>(ext, 0, "sr1")
+        val sr1 = ext.state<Int>(0, "sr1")
         ext.addToGraphWithAction()
-        // |> When updated in push event
-        ext.action("update") {
-            sr1.update(1, false)
-        }
+
+        // |> When updated in action
+        g.action({
+            sr1.update(1)
+        })
+
         // |> Then state is updated
         assertEquals(1, sr1.value)
     }
-
+/*
     @Test
     fun `works as demand and supply`() {
         // |> Given state resources and behaviors
@@ -234,4 +258,6 @@ class StateTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
         assertBehaviorGraphException { sr1.update(2, false) }
     }
+
+ */
 }

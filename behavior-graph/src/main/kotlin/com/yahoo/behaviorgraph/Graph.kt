@@ -49,12 +49,12 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         lastEvent = InitialEvent
     }
 
-    fun actionAsync(block: () -> Unit, debugName: String?) {
+    fun actionAsync(debugName: String? = null, block: () -> Unit) {
         val action = Action(block, debugName)
         asyncActionHelper(action)
     }
 
-    fun action(block: () -> Unit, debugName: String? = null) {
+    fun action(debugName: String? = null, block: () -> Unit) {
         val action = Action(block, debugName)
         actionHelper(action)
     }
@@ -154,7 +154,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                 untrackedBehaviors.clear()
                 extentsAdded.clear()
                 extentsRemoved.clear()
-                throw(e)
+                throw e
             }
             // no more tasks so we can exit the event loop
             break
@@ -253,7 +253,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         }
     }
 
-    fun sideEffect(block: () -> Unit, debugName: String? = null) {
+    fun sideEffect(debugName: String? = null, block: () -> Unit) {
         sideEffectHelper(SideEffect(block, currentBehavior, debugName))
     }
 
@@ -270,7 +270,6 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
 
     private fun addUntrackedBehaviors(sequence: Long) {
         for (behavior in untrackedBehaviors) {
-            activateBehavior(behavior, sequence)
             modifiedDemandBehaviors.add(behavior)
             modifiedSupplyBehaviors.add(behavior)
         }

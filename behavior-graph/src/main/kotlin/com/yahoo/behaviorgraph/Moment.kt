@@ -31,7 +31,7 @@ class Moment<T>(extent: Extent, debugName: String? = null) : Resource(extent, de
     }
 
     fun updateWithAction(value: T, debugName: String? = null) {
-        graph.action({ update(value) }, debugName)
+        graph.action(debugName, { update(value) })
     }
 
     fun update(value: T) {

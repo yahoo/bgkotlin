@@ -28,7 +28,7 @@ class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
         get() = trace.event
 
     fun updateWithAction(newValue: T, debugName: String? = null) {
-        graph.action({ update(newValue) }, debugName)
+        graph.action(debugName, { update(newValue) })
     }
 
     fun update(newValue: T) {

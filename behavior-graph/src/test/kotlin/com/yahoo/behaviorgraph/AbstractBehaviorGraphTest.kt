@@ -12,10 +12,6 @@ abstract class AbstractBehaviorGraphTest
 {
     class TestExtent(g: Graph) : Extent(g)
 
-    class OtherExtent(val g: Graph) : Extent by myextent {
-        val myextent: Extent = Extent(g)
-    }
-
     lateinit var g: Graph
     protected lateinit var setupExt: TestExtent
     lateinit var ext: Extent

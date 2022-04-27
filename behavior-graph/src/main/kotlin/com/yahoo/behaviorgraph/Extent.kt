@@ -54,9 +54,9 @@ open class Extent(val graph: Graph) {
     }
 
     fun addToGraphWithAction(debugName: String? = null) {
-        this.graph.action({
+        this.graph.action(debugName, {
             this.addToGraph()
-        }, debugName)
+        })
     }
 
     fun addToGraph() {
@@ -69,7 +69,7 @@ open class Extent(val graph: Graph) {
     }
 
     fun removeFromGraphWithAction(strategy: ExtentRemoveStrategy = ExtentRemoveStrategy.extentOnly, debugName: String? = null) {
-        this.graph.action({ this.removeFromGraph(strategy) }, debugName)
+        this.graph.action(debugName, { this.removeFromGraph(strategy) })
     }
 
     fun removeFromGraph(strategy: ExtentRemoveStrategy = ExtentRemoveStrategy.extentOnly) {
@@ -119,17 +119,17 @@ fun <T: Extent> T.behavior(): BehaviorBuilder<T> {
     return BehaviorBuilder(this)
 }
 
-fun <T: Extent> T.sideEffect(block: (ext: T) -> Unit, debugName: String? = null) {
+fun <T: Extent> T.sideEffect(debugName: String? = null, block: (ext: T) -> Unit) {
     val sideEffect = ExtentSideEffect(block as (Extent) -> Unit, this, this.graph.currentBehavior, debugName)
     graph.sideEffectHelper(sideEffect)
 }
 
-fun <T: Extent> T.actionAsync(action: (ext: T) -> Unit, debugName: String? = null) {
+fun <T: Extent> T.actionAsync(debugName: String? = null, action: (ext: T) -> Unit) {
     val action = ExtentAction(action as (Extent) -> Unit, this, debugName)
     graph.asyncActionHelper(action)
 }
 
-fun <T: Extent> T.action(action: (ext: T) -> Unit, debugName: String? = null) {
+fun <T: Extent> T.action(debugName: String? = null, action: (ext: T) -> Unit) {
     val action = ExtentAction(action as (Extent) -> Unit, this, debugName)
     graph.actionHelper(action)
 }

@@ -9,18 +9,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MomentTest : AbstractBehaviorGraphTest() {
-    /*
     @Test
     fun `moment happens`() {
         // |> Given a moment in the graph
-        val mr1 = Moment<Unit>(ext, "mr1")
+        val mr1 = ext.moment<Unit>("mr1")
         var afterUpdate = false
-        ext.makeBehavior(listOf(mr1), null) {
-            if (mr1.justUpdated) {
+        ext.behavior()
+            .demands(mr1)
+            .runs {
                 afterUpdate = true
             }
-        }
         ext.addToGraphWithAction()
+
         // |> When it is read in the graph (and was not updated)
         var beforeUpdate = false
         var happenedEvent: Event? = null
@@ -29,6 +29,7 @@ class MomentTest : AbstractBehaviorGraphTest() {
             mr1.update(Unit)
             happenedEvent = ext.graph.currentEvent
         }
+
         // |> Then it didn't happen
         assertFalse(beforeUpdate)
         // |> And when it updates
@@ -44,31 +45,36 @@ class MomentTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can have data`() {
         // Given a moment with data
-        val mr1 = Moment<Int>(ext, "mr1")
+        val mr1 = ext.moment<Int>("mr1")
         var afterUpdate: Int? = null
-        ext.makeBehavior(listOf(mr1), null) {
-            if (mr1.justUpdated) {
+        var updatedToOne: Boolean = false
+        ext.behavior()
+            .demands(mr1)
+            .runs {
                 afterUpdate = mr1.value
+                updatedToOne = mr1.justUpdatedTo(1)
             }
-        }
         ext.addToGraphWithAction()
+
         // |> When it happens
         mr1.updateWithAction(1)
+
         // |> Then the data is visible in subsequent behaviors
         assertEquals(1, afterUpdate)
+        assertTrue(updatedToOne)
         // but is an Exception outside event loop
         assertBehaviorGraphException { mr1.value }
     }
 
     @Test
     fun `non-supplied moment can happen when adding`() {
-        val mr1 = Moment<Unit>(ext, "mr1")
+        val mr1 = ext.moment<Unit>("mr1")
         var didRun = false
-        ext.makeBehavior(listOf(mr1), null) {
-            if (mr1.justUpdated) {
+        ext.behavior()
+            .demands(mr1)
+            .runs {
                 didRun = true
             }
-        }
 
         g.action("adding") {
             mr1.update(Unit)
@@ -81,7 +87,7 @@ class MomentTest : AbstractBehaviorGraphTest() {
     @Test
     fun `check happen requires graph`() {
         // |> Given a moment resource not part of the graph
-        val mr1 = Moment<Unit>(ext, "mr1")
+        val mr1 = ext.moment<Unit>("mr1")
         // |> When it is updated
         // |> Then an error is raised
         assertBehaviorGraphException { mr1.update(Unit) }
@@ -90,33 +96,40 @@ class MomentTest : AbstractBehaviorGraphTest() {
     @Test
     fun `check supplied moment catches wrong updater`() {
         // |> Given a supplied state resource
-        val mr1 = Moment<Unit>(ext, "mr1")
-        val mr2 = Moment<Unit>(ext, "mr2")
-        ext.makeBehavior(listOf(mr1), listOf(mr2)) {
-        }
-        ext.makeBehavior(listOf(mr1), null) {
-            if (mr1.justUpdated) {
+        val mr1 = ext.moment<Unit>("mr1")
+        val mr2 = ext.moment<Unit>("mr2")
+        ext.behavior()
+            .supplies(mr2)
+            .demands(mr1)
+            .runs {
+            }
+        ext.behavior()
+            .demands(mr1)
+            .runs {
                 mr2.update(Unit)
             }
-        }
         ext.addToGraphWithAction()
+
         // |> When it is updated by the wrong behavior
         // |> Then it should throw
         assertBehaviorGraphException { mr1.update(Unit) }
     }
 
     @Test
-    fun `check measured moment catches wrong updater`() {
+    fun `check non-supplied moment catches wrong updater`() {
         // |> Given a measured moment resource
-        val mr1 = Moment<Unit>(ext, "mr1")
-        val mr2 = Moment<Unit>(ext, "mr2")
-        ext.makeBehavior(listOf(mr1), null) {}
-        ext.makeBehavior(listOf(mr1), null) {
-            if (mr1.justUpdated) {
+        val mr1 = ext.moment<Unit>("mr1")
+        val mr2 = ext.moment<Unit>("mr2")
+        ext.behavior()
+            .demands(mr1)
+            .runs {}
+        ext.behavior()
+            .demands(mr1)
+            .runs {
                 mr2.update(Unit)
             }
-        }
         ext.addToGraphWithAction()
+
         // |> When it is updated by the wrong behavior
         // |> Then it should throw
         assertBehaviorGraphException { mr1.update(Unit) }
@@ -124,10 +137,76 @@ class MomentTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `check moment happens outside event loop is an error`() {
-        val mr1 = Moment<Unit>(ext, "mr1")
+        val mr1 = ext.moment<Unit>("mr1")
         ext.addToGraphWithAction()
         assertBehaviorGraphException { mr1.update(Unit) }
     }
 
-     */
+    @Test
+    fun`cannot access value inside behavior if not supply or demand`() {
+        val mr1 = ext.moment<Unit>()
+        val mr2 = ext.moment<Unit>()
+        val mr3 = ext.moment<Unit>()
+        val mr4 = ext.moment<Unit>()
+        val mr5 = ext.moment<Unit>()
+
+        // |> Given resource that are supplied and demanded
+        ext.behavior().demands(mr1).supplies(mr2).runs {
+            mr1.value
+            mr1.event
+            mr1.justUpdated
+            mr2.event
+            mr2.justUpdated
+        }
+        ext.addToGraphWithAction()
+
+        // |> When they are accessed inside a behavior during an event
+        // |> Then it will succeed
+        mr1.updateWithAction(Unit)
+
+        // |> And when they are accessed outside an event or behavior
+        // |> Then it will succeed
+        mr1.event
+        mr1.justUpdated
+
+        // |> And when we access a non-supplied resource inside an action
+        // |> Then it will succeed
+        g.action {
+            mr1.event
+            mr1.justUpdated
+        }
+
+        // |> But Given behaviors that access value, event, or justUpdated for a resource
+        // that is not supplied or demanded
+        val ext2 = Extent(g)
+        ext.addChildLifetime(ext2)
+        ext2.behavior().demands(mr3).runs {
+            mr2.value
+        }
+        ext2.behavior().demands(mr4).runs {
+            mr2.event
+        }
+        ext2.behavior().demands(mr5).runs {
+            mr2.justUpdated
+        }
+        ext2.addToGraphWithAction()
+
+        // |> Then it will fail
+        assertBehaviorGraphException {
+            mr3.updateWithAction(Unit)
+        }
+        assertBehaviorGraphException {
+            mr4.updateWithAction(Unit)
+        }
+        assertBehaviorGraphException {
+            mr5.updateWithAction(Unit)
+        }
+
+        // |> And when we access a supplied resource from an action
+        // |> Then it will fail
+        assertBehaviorGraphException {
+            mr2.updateWithAction(Unit)
+        }
+    }
+
 }

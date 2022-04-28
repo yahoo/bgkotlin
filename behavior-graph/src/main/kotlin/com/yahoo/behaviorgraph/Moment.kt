@@ -12,11 +12,16 @@ class Moment<T>(extent: Extent, debugName: String? = null) : Resource(extent, de
     private var _happenedWhen: Event? = null
 
     override val justUpdated: Boolean
-        get() = this._happened
+        get() {
+            assertValidAccessor()
+            return _happened
+        }
+
 
     val value: T
         get() {
             assertValidAccessor()
+            if (!_happened) { throw BehaviorGraphException("Cannot access moment value when it did not update.") }
             return this._happenedValue!!
         }
 

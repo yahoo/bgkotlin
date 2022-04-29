@@ -5,4 +5,4 @@ interface Demandable {
     val type: LinkType
 }
 
-data class DemandLink(val resource: Resource, val type: LinkType)
+data class DemandLink(override val resource: Resource, override val type: LinkType) : Demandable

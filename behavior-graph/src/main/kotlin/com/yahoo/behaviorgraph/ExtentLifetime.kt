@@ -24,15 +24,20 @@ internal class ExtentLifetime(
             val err = SameLifetimeMustBeEstablishedBeforeAddingToGraph(extent)
             throw err
         }
-        // merge existing lifetimes and children into one lifetime heirarchy
-        // move children first
-        extent.lifetime?.children?.forEach {
-            addChildLifetime(it)
-        }
-        // then make any extents in other lifetime part of this one
-        extent.lifetime?.extents?.forEach {
-            it.lifetime = this
-            extents.add(it)
+        if (extent.lifetime != null) {
+            // merge existing lifetimes and children into one lifetime heirarchy
+            // move children first
+            extent.lifetime!!.children?.forEach {
+                addChildLifetime(it)
+            }
+            // then make any extents in other lifetime part of this one
+            extent.lifetime!!.extents?.forEach {
+                it.lifetime = this
+                extents.add(it)
+            }
+        } else {
+            extent.lifetime = this
+            extents.add(extent)
         }
     }
 
@@ -75,7 +80,7 @@ internal class ExtentLifetime(
     fun getAllContainedExtents(): List<Extent> {
         val resultExtents = mutableListOf<Extent>()
         resultExtents.addAll(extents)
-        children?.forEach { extents.addAll(it.getAllContainedExtents()) }
+        children?.forEach { resultExtents.addAll(it.getAllContainedExtents()) }
         return resultExtents
     }
 

@@ -14,12 +14,12 @@ class BehaviorBuilder<T: Extent>(
 
     fun demands(vararg demands: Demandable) = apply { untrackedDemands.addAll(demands) }
     fun supplies(vararg supplies: Resource) = apply { untrackedSupplies.addAll(supplies) }
-    fun dynamicDemands(vararg switches: Demandable, links: ((ext: T) -> List<Demandable?>?), relinkingOrder: RelinkingOrder = RelinkingOrder.relinkingOrderPrior) = apply {
+    fun dynamicDemands(vararg switches: Demandable, relinkingOrder: RelinkingOrder = RelinkingOrder.relinkingOrderPrior, links: ((ext: T) -> List<Demandable?>?)) = apply {
         dynamicDemandSwitches = switches
         dynamicDemandLinks = links
         dynamicDemandRelinkingOrder = relinkingOrder
     }
-    fun dynamicSupplies(vararg switches: Demandable, links: ((ext: T) -> List<Resource?>?), relinkingOrder: RelinkingOrder = RelinkingOrder.relinkingOrderPrior) = apply {
+    fun dynamicSupplies(vararg switches: Demandable, relinkingOrder: RelinkingOrder = RelinkingOrder.relinkingOrderPrior, links: ((ext: T) -> List<Resource?>?)) = apply {
         dynamicSupplySwitches = switches
         dynamicSupplyLinks = links
         dynamicSupplyRelinkingOrder = relinkingOrder

@@ -18,7 +18,7 @@ open class Resource(val extent: Extent, var debugName: String? = null): Demandab
         extent.addResource(this)
     }
 
-    val order get() = DemandLink(this, LinkType.order)
+    val order: Demandable get() = DemandLink(this, LinkType.order)
 
     internal fun assertValidUpdater() {
         val currentBehavior = graph.currentBehavior

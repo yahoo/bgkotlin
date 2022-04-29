@@ -226,7 +226,8 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                 eventLoopState!!.actionUpdates.add(resource)
             }
             for (subsequent in resource.subsequents) {
-                val isOrderingDemand = subsequent.orderingDemands != null && subsequent.orderingDemands!!.contains(resource)
+                val isOrderingDemand =
+                    subsequent.orderingDemands != null && subsequent.orderingDemands!!.contains(resource)
                 if (!isOrderingDemand) {
                     activateBehavior(subsequent, aCurrentEvent.sequence)
                 }
@@ -280,7 +281,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         modifiedSupplyBehaviors.forEach { behavior ->
             behavior.untrackedSupplies?.let { behaviorUntrackedSupplies ->
                 if (validateLifetimes) {
-                    behavior.supplies?.forEach { existingSupply ->
+                    behavior.untrackedSupplies?.forEach { existingSupply ->
                         if (!behavior.extent.hasCompatibleLifetime(existingSupply.extent)) {
                             throw BehaviorGraphException("Static supplies can only be with extents with the unified or parent lifetimes. Supply=$existingSupply")
                         }
@@ -323,12 +324,10 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
 
     private fun addUntrackedDemands(sequence: Long) {
         modifiedDemandBehaviors.forEach { behavior ->
-            behavior.untrackedDemands?.let { untrackedDemands ->
-                if (validateLifetimes) {
-                    behavior.demands?.forEach { demand ->
-                        if (!behavior.extent.hasCompatibleLifetime(demand.resource.extent)) {
-                            throw BehaviorGraphException("Static demands can only be assigned across extents with a unified or parent lifetime.")
-                        }
+            if (validateLifetimes) {
+                behavior.untrackedDemands?.forEach { demand ->
+                    if (!behavior.extent.hasCompatibleLifetime(demand.resource.extent)) {
+                        throw BehaviorGraphException("Static demands can only be assigned across extents with a unified or parent lifetime.")
                     }
                 }
             }

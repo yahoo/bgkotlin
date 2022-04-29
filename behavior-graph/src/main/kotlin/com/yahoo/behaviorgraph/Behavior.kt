@@ -34,8 +34,16 @@ class Behavior(
         return "Behavior()"
     }
 
+    fun setDynamicDemands(vararg newDemands: Demandable) {
+        setDynamicDemands(newDemands.asList())
+    }
+
     fun setDynamicDemands(newDemands: List<Demandable?>?) {
         this.extent.graph.updateDemands(this, newDemands?.filterNotNull())
+    }
+
+    fun setDynamicSupplies(vararg newSupplies: Resource) {
+        setDynamicSupplies(newSupplies.asList())
     }
 
     fun setDynamicSupplies(newSupplies: List<Resource?>?) {

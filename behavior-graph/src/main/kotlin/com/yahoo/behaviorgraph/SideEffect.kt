@@ -4,16 +4,18 @@
 package com.yahoo.behaviorgraph
 
 interface RunnableSideEffect {
+    val debugName: String?
+    val behavior: Behavior?
     fun runSideEffect()
 }
 
-internal class SideEffect(val block: () -> Unit, val behavior: Behavior?, val debugName: String?): RunnableSideEffect {
+internal class SideEffect(val block: () -> Unit, override val behavior: Behavior?, override val debugName: String?): RunnableSideEffect {
     override fun runSideEffect() {
         block()
     }
 }
 
-internal class ExtentSideEffect(val block: (ext: Extent) -> Unit, val extent: Extent, val behavior: Behavior?, val debugName: String? = null): RunnableSideEffect {
+internal class ExtentSideEffect(val block: (ext: Extent) -> Unit, val extent: Extent, override val behavior: Behavior?, override val debugName: String? = null): RunnableSideEffect {
     override fun runSideEffect() {
         block(extent)
     }

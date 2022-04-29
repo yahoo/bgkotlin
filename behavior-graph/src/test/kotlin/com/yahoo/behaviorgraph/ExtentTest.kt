@@ -9,23 +9,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExtentTest : AbstractBehaviorGraphTest() {
-    /*
-    class TestExtentLocal(g: Graph) : Extent<TestExtentLocal>(g) {
-        val r1 = State<Int>(this, 0, "r1")
-        var r2 = State<Int>(this, 0, "custom_r2")
-
-        init {
-            r2.debugName = "custom_r2"
-        }
-
-        val b1 = Behavior(this, listOf(r1), listOf(r2)) {
-            if (r1.justUpdated) {
-                r2.update(r1.value * 2, true)
-            }
+    class TestExtentLocal(g: Graph) : Extent(g) {
+        val r1 = this.state<Int>(0, "r1")
+        var r2 = this.state<Int>(0, "custom_r2")
+        val b1 = this.behavior().demands(r1).supplies(r2).runs {
+            r2.update(r1.value * 2)
         }
 
         fun injectNumber(num: Int) {
-            this.r1.updateWithAction(num, true)
+            r1.updateWithAction(num)
         }
     }
 
@@ -41,9 +33,7 @@ class ExtentTest : AbstractBehaviorGraphTest() {
         e.addToGraphWithAction()
 
         assertSame(g, e.r1.graph)
-        assertTrue(e.r1.added)
         assertSame(e, e.b1.extent)
-        assertTrue(e.b1.added)
         assertEquals(0, e.r2.value)
 
         e.injectNumber(2)
@@ -56,10 +46,23 @@ class ExtentTest : AbstractBehaviorGraphTest() {
     fun `contained components named if needed`() {
         val e = TestExtentLocal(g)
         e.addToGraphWithAction()
+
         // property names
         assertEquals("r1", e.r1.debugName)
         // custom name not overridden
         assertEquals("custom_r2", e.r2.debugName)
+    }
+
+    @Test
+    fun `added resource is updated on adding`() {
+        val e = Extent(g)
+        var runOnAdd = false
+        e.behavior().demands(e.didAdd).runs {
+            runOnAdd = true
+        }
+        e.addToGraphWithAction()
+
+        assertTrue(runOnAdd)
     }
 
     //checks below
@@ -69,11 +72,19 @@ class ExtentTest : AbstractBehaviorGraphTest() {
     }
 
     @Test
-    fun `check actions on unadded extents are errors`() {
-        val e = TestExtent(g)
-        assertBehaviorGraphException { e.action("impulse1") {} }
-        assertBehaviorGraphException { e.actionAsync("impulse2") {} }
+    fun `check extent cannot be added to graph outside event`() {
+        val e = TestExtentLocal(g)
+        assertBehaviorGraphException {
+            e.addToGraph()
+        }
     }
 
-     */
+    @Test
+    fun `check extent cannot be removed from graph outside event`() {
+        val e = TestExtentLocal(g)
+        e.addToGraphWithAction()
+        assertBehaviorGraphException {
+            e.removeFromGraph()
+        }
+    }
 }

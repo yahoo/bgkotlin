@@ -36,8 +36,11 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     private var extentsRemoved: MutableList<Extent> = mutableListOf()
     var validateDependencies: Boolean = true
     var validateLifetimes: Boolean = true
+    val actionUpdates: List<Resource>? get() = eventLoopState?.actionUpdates
+    val currentAction: RunnableAction? get() = eventLoopState?.action
+    val currentSideEffect: RunnableSideEffect? get() = eventLoopState?.currentSideEffect
 
-    init {
+        init {
         effects = ArrayDeque()
         actions = ArrayDeque()
         activatedBehaviors = PriorityQueue()

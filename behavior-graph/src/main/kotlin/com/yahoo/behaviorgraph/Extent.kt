@@ -10,8 +10,7 @@ open class Extent(val graph: Graph) {
     var debugName: String = javaClass.simpleName
     internal var behaviors: MutableList<Behavior> = mutableListOf()
     internal var resources: MutableList<Resource> = mutableListOf()
-    var addedToGraphWhen: Long? = null
-        internal set
+    internal var addedToGraphWhen: Long? = null
     var didAdd: State<Boolean>
     internal var didAddBehavior: Behavior
     internal var lifetime: ExtentLifetime? = null

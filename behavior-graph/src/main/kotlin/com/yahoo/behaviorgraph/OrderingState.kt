@@ -4,7 +4,9 @@
 package com.yahoo.behaviorgraph
 
 internal enum class OrderingState {
-    Unordered,
-    Ordered,
-    Ordering
+    Untracked,
+    NeedsOrdering,
+    Clearing,
+    Ordering,
+    Ordered
 }

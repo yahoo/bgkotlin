@@ -5,52 +5,75 @@ package com.yahoo.behaviorgraph
 
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
 
-class Moment<T>(extent: Extent<*>, debugName: String? = null) : Resource(extent, debugName),
+abstract class BaseMoment(extent: Extent, debugName: String? = null) : Resource(extent, debugName),
     Transient {
-    private var _happened = false
-    private var _happenedValue: T? = null
-    private var _happenedWhen: Event? = null
+    protected var _happened = false
+    protected var _happenedWhen: Event? = null
 
-    /**
-     * return if we've just been updated
-     */
-    val justUpdated: Boolean
-        get() = this._happened
-
-    /**
-     * @throws  BehaviorGraphException if not justUpdated())
-     */
-    val value: T
+    override val justUpdated: Boolean
         get() {
-            if (!justUpdated) {
-                throw BehaviorGraphException("Cannot access value unless it has been justUpdated()")
-            }
-            return this._happenedValue!!
+            assertValidAccessor()
+            return _happened
         }
-    val event: Event?
-        get() = this._happenedWhen
 
-    fun updateWithAction(value: T) {
-        graph.action(getImpulse()) { update(value) }
+
+    val event: Event?
+        get() {
+            assertValidAccessor()
+            return this._happenedWhen
+        }
+
+    override fun clear() {
+        _happened = false
+    }
+}
+
+class Moment(extent: Extent, debugName: String? = null): BaseMoment(extent, debugName) {
+    fun update() {
+        assertValidUpdater()
+        _happened = true
+        _happenedWhen = graph.currentEvent
+        graph.resourceTouched(this)
+        graph.trackTransient(this)
     }
 
-    private fun getImpulse(): String? {
-        return if (this.debugName != null) {
-            "Impulse From happen(): $this)"
-        } else null
+    fun updateWithAction(debugName: String? = null) {
+        graph.action(debugName) { update() }
+    }
+
+}
+
+class TypedMoment<T>(extent: Extent, debugName: String? = null): BaseMoment(extent, debugName) {
+    private var _happenedValue: T? = null
+
+    val value: T
+        get() {
+            assertValidAccessor()
+            if (!_happened) { throw BehaviorGraphException("Cannot access moment value when it did not update.") }
+            return this._happenedValue!!
+        }
+
+
+    fun updateWithAction(value: T, debugName: String? = null) {
+        graph.action(debugName) { update(value) }
     }
 
     fun update(value: T) {
-        this.assertValidUpdater()
-        this._happened = true
-        this._happenedValue = value
-        this._happenedWhen = this.graph.currentEvent
-        this.graph.resourceTouched(this)
-        this.graph.trackTransient(this)
+        assertValidUpdater()
+        _happened = true
+        _happenedValue = value
+        _happenedWhen = graph.currentEvent
+        graph.resourceTouched(this)
+        graph.trackTransient(this)
     }
 
     override fun clear() {
-        this._happened = false
-        this._happenedValue = null
+        _happenedValue = null
+        super.clear()
     }
+
+    fun justUpdatedTo(value: T): Boolean {
+        return this.justUpdated && this._happenedValue == value
+    }
+
 }

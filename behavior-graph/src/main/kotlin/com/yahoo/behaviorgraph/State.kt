@@ -5,15 +5,21 @@ package com.yahoo.behaviorgraph
 
 import com.yahoo.behaviorgraph.Event.Companion.InitialEvent
 
-class State<T>(extent: Extent<*>, initialState: T, debugName: String? = null) :
+class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
     Resource(extent, debugName),
     Transient {
     private var currentState = StateHistory(initialState, InitialEvent)
     private var priorStateDuringEvent: StateHistory<T>? = null
     val value: T
-        get() = currentState.value
+        get() {
+            assertValidAccessor()
+            return currentState.value
+        }
     val event: Event
-        get() = currentState.event
+        get() {
+            assertValidAccessor()
+            return currentState.event
+        }
     private val trace: StateHistory<T>
         get() = priorStateDuringEvent ?: currentState
     val traceValue: T
@@ -21,31 +27,34 @@ class State<T>(extent: Extent<*>, initialState: T, debugName: String? = null) :
     val traceEvent: Event
         get() = trace.event
 
-    fun updateWithAction(newValue: T, changesOnly: Boolean) {
-        graph.action(getImpulse()) { update(newValue, changesOnly) }
+    fun updateWithAction(newValue: T, debugName: String? = null) {
+        graph.action(debugName, { update(newValue) })
     }
 
-    fun update(newValue: T, changesOnly: Boolean) {
-        this.assertValidUpdater()
-
-        if (changesOnly) {
-            if (newValue == currentState.value)
-                return
+    fun update(newValue: T) {
+        if (newValue == currentState.value) {
+            return
         }
-        priorStateDuringEvent = currentState
+        updateForce(newValue)
+    }
+
+    fun updateForce(newValue: T) {
+        assertValidUpdater()
+        if (graph.currentEvent != null && currentState.event.sequence < graph.currentEvent!!.sequence) {
+            // this check prevents updating priorState if we are updated multiple times in same behavior
+            priorStateDuringEvent = currentState
+        }
+
         currentState = StateHistory(newValue, this.graph.currentEvent!!)
         this.graph.resourceTouched(this)
         this.graph.trackTransient(this)
     }
 
-    private fun getImpulse(): String? {
-        return if (this.debugName != null) {
-            "Impulse From happen(): $this)"
-        } else null
-    }
-
-    val justUpdated: Boolean
-        get() = currentState.event == graph.currentEvent
+    override val justUpdated: Boolean
+        get() {
+            assertValidAccessor()
+            return currentState.event == graph.currentEvent
+        }
 
     fun justUpdatedTo(toValue: T): Boolean {
         return justUpdated &&

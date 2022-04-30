@@ -14,17 +14,24 @@ import org.junit.Test
 import org.robolectric.util.ReflectionHelpers
 
 class GraphCheckTests : AbstractBehaviorGraphTest() {
-    @Test(expected = BehaviorGraphException::class)
-    fun `check cannot add extent to graph outside event loop`() {
-        g.addExtent(ext)
-    }
 
     @Test
     fun `check no graph dependency cycles`() {
-        val r_x = State(ext, 0, "r_x")
-        val r_y = State(ext, 0, "r_y")
-        ext.makeBehavior(listOf(r_y), listOf(r_x)) {}
-        ext.makeBehavior(listOf(r_x), listOf(r_y)) {}
+        val r_x = ext.state(0, "r_x")
+        val r_y = ext.state(0, "r_y")
+        val r_z = ext.state(0, "r_z")
+        ext.behavior().supplies(r_z).runs {
+            // non cycle behavior
+        }
+        ext.behavior()
+            .supplies(r_x)
+            .demands(r_y, r_z)
+            .runs {}
+        ext.behavior()
+            .supplies(r_y)
+            .demands(r_x)
+            .runs {}
+
         var caught = false
         try {
             ext.addToGraphWithAction()
@@ -40,39 +47,51 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
 
     @Test
     fun `check resource can only be supplied by one behavior`() {
-        val r_x = State(ext, 0, "r_x")
-        ext.makeBehavior(listOf(r_a), listOf(r_x)) {}
-        ext.makeBehavior(listOf(r_a), listOf(r_x)) {}
+        val r_x = ext.state(0, "r_x")
+        ext.behavior()
+            .supplies(r_x)
+            .demands(r_a)
+            .runs {}
+        ext.behavior()
+            .supplies(r_x)
+            .demands(r_a)
+            .runs {}
         assertBehaviorGraphException { ext.addToGraphWithAction() }
     }
 
     @Test
     fun `check update demands and supplies only during event loop`() {
-        val b_x = ext.makeBehavior(listOf(), listOf()) {}
+        val b_x = ext.behavior()
+            .supplies()
+            .demands()
+            .runs {}
         ext.addToGraphWithAction()
 
         assertBehaviorGraphException {
-            b_x.setDemands(listOf(r_a))
+            b_x.setDynamicDemands(listOf(r_a))
         }
 
         assertBehaviorGraphException {
-            b_x.setSupplies(listOf(r_b))
+            b_x.setDynamicSupplies(listOf(r_b))
         }
     }
 
     @Test
     fun `check cannot update demands or supplies on behavior not in graph`() {
-        val b_x = ext.makeBehavior(listOf(), listOf()) {}
+        val b_x = ext.behavior()
+            .supplies()
+            .demands()
+            .runs {}
 
         assertBehaviorGraphException {
             g.action("update") {
-                b_x.setDemands(listOf(r_a))
+                b_x.setDynamicDemands(listOf(r_a))
             }
         }
 
         assertBehaviorGraphException {
             g.action("update") {
-                b_x.setSupplies(listOf(r_a))
+                b_x.setDynamicSupplies(listOf(r_a))
             }
         }
     }
@@ -85,16 +104,16 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
         var secondAction = false
         ext.addToGraphWithAction()
         assertExpectedException(SideEffectError::class) {
-            g.action("throws") {
-                ext.sideEffect("action") {
-                    g.action("innerAction") {
+            g.action {
+                ext.sideEffect("action side effect") {
+                    g.action {
                         innerAction = true
                     }
                 }
-                ext.sideEffect("innerEffect") {
+                ext.sideEffect("throw effect") {
                     throw SideEffectError()
                 }
-                ext.sideEffect("effect") {
+                ext.sideEffect("inner effect") {
                     innerEffect = true
                 }
             }
@@ -111,31 +130,30 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
 
     @Test
     fun `handled throw in behavior should clear out queued up internals`() {
-        val r1 = Moment<Unit>(ext, "r1")
-        val r2 = Moment<Unit>(ext, "r2")
-        val r3 = Moment<Unit>(ext, "r3")
-        val b3 = ext.makeBehavior(listOf(r3), null) {
-            // do nothing
+        val r1 = ext.moment("r1")
+        val r2 = ext.moment("r2")
+        val r3 = ext.moment("r3")
+        var b3: Behavior? = null
+
+        ext.behavior().supplies(r2).demands(r1).runs {
+            r2.update()
         }
 
-        ext.makeBehavior(listOf(r1), listOf(r2)) {
-            if (r1.justUpdated) {
-                r2.update(Unit)
-            }
+        ext.behavior().supplies(r3).demands(r2).runs {
+            r3.update()
+            b3!!.setDynamicDemands(listOf())
+            b3!!.setDynamicSupplies(listOf())
+            throw Exception()
         }
-        ext.makeBehavior(listOf(r2), listOf(r3)) {
-            if (r2.justUpdated) {
-                r3.update(Unit)
-                b3.setDemands(listOf())
-                b3.setSupplies(listOf())
-                throw Exception()
-            }
+
+        b3 = ext.behavior().demands(r3).runs {
+            // do nothing
         }
 
         ext.addToGraphWithAction()
         assertExpectedException(Exception::class) {
             g.action("r1") {
-                r1.update(Unit)
+                r1.update()
             }
         }
 
@@ -156,9 +174,7 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
     @Test
     fun `handled error when adding extent does not leave dangling behaviors`() {
         // |> Given we are adding an extent
-        ext.makeBehavior(null, null) {
-            // do nothing
-        }
+        ext.behavior().runs { }
         // |> When it throws when adding
         assertExpectedException(Exception::class) {
             g.action("add") {
@@ -168,6 +184,18 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
         }
         // |> Then behaviors from that extent aren't waiting to be added
         assertEquals(0, (ReflectionHelpers.getField(g, "untrackedBehaviors") as Collection<*>).size)
+    }
+
+    @Test
+    fun `check cannot demand a resource from an extent that has not been added to graph`() {
+        val ext3 = Extent(g)
+        val mr1 = ext3.moment()
+        ext.behavior().demands(mr1).runs {
+
+        }
+        assertBehaviorGraphException {
+            ext.addToGraphWithAction()
+        }
     }
 }
 

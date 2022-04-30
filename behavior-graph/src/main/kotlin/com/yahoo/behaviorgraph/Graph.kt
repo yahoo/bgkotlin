@@ -13,25 +13,34 @@ import com.yahoo.behaviorgraph.exception.ResourceCannotBeSuppliedByMoreThanOneBe
 import com.yahoo.behaviorgraph.platform.PlatformSupport
 import java.util.ArrayDeque
 import java.util.ArrayList
-import java.util.Deque
-import java.util.HashSet
 import java.util.PriorityQueue
 import kotlin.math.max
 
 class Graph constructor(private var platformSupport: PlatformSupport = PlatformSupport.platformSupport) {
-    internal var currentEvent: Event? = null
+    var currentEvent: Event? = null
+        private set
     var lastEvent: Event
+        private set
     private var activatedBehaviors: PriorityQueue<Behavior>
-    internal var currentBehavior: Behavior? = null
-    private var effects: Deque<SideEffect>
-    private var actions: Deque<Action>
+    var currentBehavior: Behavior? = null
+        private set
+    private var effects: ArrayDeque<RunnableSideEffect>
+    private var actions: ArrayDeque<RunnableAction>
     private var untrackedBehaviors: MutableList<Behavior>
     private var modifiedDemandBehaviors: MutableList<Behavior>
     private var modifiedSupplyBehaviors: MutableList<Behavior>
     private var updatedTransients: MutableList<Transient>
     private var needsOrdering: MutableList<Behavior>
+    private var eventLoopState: EventLoopState? = null
+    private var extentsAdded: MutableList<Extent> = mutableListOf()
+    private var extentsRemoved: MutableList<Extent> = mutableListOf()
+    var validateDependencies: Boolean = true
+    var validateLifetimes: Boolean = true
+    val actionUpdates: List<Resource>? get() = eventLoopState?.actionUpdates
+    val currentAction: RunnableAction? get() = eventLoopState?.action
+    val currentSideEffect: RunnableSideEffect? get() = eventLoopState?.currentSideEffect
 
-    init {
+        init {
         effects = ArrayDeque()
         actions = ArrayDeque()
         activatedBehaviors = PriorityQueue()
@@ -43,79 +52,163 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         lastEvent = InitialEvent
     }
 
-    //*****
-    fun actionAsync(impulse: String?, block: () -> Unit) {
-        val action = Action(impulse, block)
-        this.actions.addLast(action)
-        if (this.currentEvent == null) {
-            this.eventLoop()
+    fun actionAsync(debugName: String? = null, block: () -> Unit) {
+        val action = Action(block, debugName)
+        asyncActionHelper(action)
+    }
+
+    fun action(debugName: String? = null, block: () -> Unit) {
+        val action = Action(block, debugName)
+        actionHelper(action)
+    }
+
+    internal fun actionHelper(action: RunnableAction) {
+        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.action || eventLoopState!!.phase == EventLoopPhase.updates)) {
+            throw BehaviorGraphException("Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block.")
+        }
+        actions.addLast(action)
+        eventLoop()
+    }
+
+    internal fun asyncActionHelper(action: RunnableAction) {
+        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.action || eventLoopState!!.phase == EventLoopPhase.updates)) {
+            throw BehaviorGraphException("Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block.")
+        }
+        actions.addLast(action)
+        if (currentEvent == null) {
+            eventLoop()
         }
     }
 
-    fun action(impulse: String?, block: () -> Unit) {
-        val action = Action(impulse, block)
-        this.actions.addLast(action)
-        this.eventLoop()
-    }
-
-    fun eventLoop() {
+    private fun eventLoop() {
         while (true) {
             try {
-                if (this.activatedBehaviors.size > 0 ||
-                    this.untrackedBehaviors.size > 0 ||
-                    this.modifiedDemandBehaviors.size > 0 ||
-                    this.modifiedSupplyBehaviors.size > 0 ||
-                    this.needsOrdering.size > 0
+                if (activatedBehaviors.size > 0 ||
+                    untrackedBehaviors.size > 0 ||
+                    modifiedDemandBehaviors.size > 0 ||
+                    modifiedSupplyBehaviors.size > 0 ||
+                    needsOrdering.size > 0
                 ) {
+                    eventLoopState!!.phase = EventLoopPhase.updates
                     val sequence = this.currentEvent!!.sequence
-                    this.addUntrackedBehaviors(sequence)
-                    this.addUntrackedSupplies(sequence)
-                    this.addUntrackedDemands(sequence)
-                    this.orderBehaviors()
-                    this.runNextBehavior(sequence)
+                    addUntrackedBehaviors(sequence)
+                    addUntrackedSupplies()
+                    addUntrackedDemands(sequence)
+                    orderBehaviors()
+                    runNextBehavior(sequence)
 
                     continue
                 }
 
+                if (validateLifetimes) {
+                    if (extentsAdded.size > 0) {
+                        validateAddedExtents()
+                        extentsAdded.clear()
+                    }
+                    if (extentsRemoved.size > 0) {
+                        validateRemovedExtents()
+                        extentsRemoved.clear()
+                    }
+                }
                 if (effects.isNotEmpty()) {
                     val effect = this.effects.removeFirst()
-                    effect.block(effect.extent)
+                    eventLoopState!!.phase = EventLoopPhase.sideEffects
+                    eventLoopState!!.currentSideEffect = effect
+                    effect.runSideEffect()
+                    if (eventLoopState != null) {
+                        // side effect could create a synchronous action which would create a nested event loop
+                        // which would clear out any existing event loop states
+                        eventLoopState?.currentSideEffect = null;
+                    }
                     continue
                 }
 
                 currentEvent?.let { aCurrentEvent ->
-                    this.clearTransients()
-                    this.lastEvent = aCurrentEvent
-                    this.currentEvent = null
-                    this.currentBehavior = null
+                    clearTransients()
+                    lastEvent = aCurrentEvent
+                    currentEvent = null
+                    eventLoopState = null
+                    currentBehavior = null
                 }
 
                 if (actions.isNotEmpty()) {
                     val action = actions.removeFirst()
                     val newEvent = Event(
                         this.lastEvent.sequence + 1,
-                        platformSupport.getCurrentTimeMillis(),
-                        action.impulse
+                        platformSupport.getCurrentTimeMillis()
                     )
                     this.currentEvent = newEvent
-                    action.block()
+                    eventLoopState = EventLoopState(action)
+                    eventLoopState!!.phase = EventLoopPhase.action
+                    action.runAction()
                     continue
                 }
             } catch (e: Exception) {
                 //put graph into clean state and rethrow exception
-                this.currentEvent = null
-                this.actions.clear()
-                this.effects.clear()
-                this.currentBehavior = null
-                this.activatedBehaviors.clear()
-                this.clearTransients()
-                this.modifiedDemandBehaviors.clear()
-                this.modifiedSupplyBehaviors.clear()
-                this.untrackedBehaviors.clear()
-                throw(e)
+                currentEvent = null
+                eventLoopState = null
+                actions.clear()
+                effects.clear()
+                currentBehavior = null
+                activatedBehaviors.clear()
+                clearTransients()
+                modifiedDemandBehaviors.clear()
+                modifiedSupplyBehaviors.clear()
+                untrackedBehaviors.clear()
+                extentsAdded.clear()
+                extentsRemoved.clear()
+                throw e
             }
             // no more tasks so we can exit the event loop
             break
+        }
+    }
+
+    private fun validateAddedExtents() {
+        // ensure extents with same lifetime also got added
+        val needAdding: MutableSet<Extent> = mutableSetOf()
+        for (added in extentsAdded) {
+            if (added.lifetime != null) {
+                for (ext in added.lifetime!!.getAllContainingExtents()) {
+                    if (ext.addedToGraphWhen == null) {
+                        needAdding.add(ext)
+                    }
+                }
+            }
+        }
+        if (needAdding.size > 0) {
+            throw BehaviorGraphException("All extents with unified or parent lifetimes must be added during the same event. Extents=$needAdding")
+        }
+    }
+
+    private fun validateRemovedExtents() {
+        // validate extents with contained lifetimes are also removed
+        val needRemoving: MutableSet<Extent> = mutableSetOf()
+        for (removed in extentsRemoved) {
+            if (removed.lifetime != null) {
+                for (ext in removed.lifetime!!.getAllContainedExtents()) {
+                    if (ext.addedToGraphWhen != null) {
+                        needRemoving.add(ext)
+                    }
+                }
+            }
+        }
+        if (needRemoving.size > 0) {
+            throw BehaviorGraphException("All extents with unified or child lifetimes must be removed during the same event. Extents=$needRemoving")
+        }
+
+        // validate removed resources are not still linked to remaining behaviors
+        for (removed in extentsRemoved) {
+            for (resource in removed.resources) {
+                for (demandedBy in resource.subsequents) {
+                    if (demandedBy.extent.addedToGraphWhen != null) {
+                        throw BehaviorGraphException("Remaining behaviors must remove dynamicDemands to removed resources. Behavior=$demandedBy Resource=$resource")
+                    }
+                }
+                if (resource.suppliedBy != null && resource.suppliedBy!!.extent.addedToGraphWhen != null) {
+                    throw BehaviorGraphException("Remaining behaviors must remove dynamicSupplies to removed resources. Remaining Behavior=${resource.suppliedBy} Removed resource=$resource")
+                }
+            }
         }
     }
 
@@ -127,13 +220,20 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     }
 
     internal fun trackTransient(resource: Transient) {
-        this.updatedTransients.add(resource)
+        updatedTransients.add(resource)
     }
 
     internal fun resourceTouched(resource: Resource) {
         this.currentEvent?.let { aCurrentEvent ->
+            if (eventLoopState != null && eventLoopState!!.phase == EventLoopPhase.action) {
+                eventLoopState!!.actionUpdates.add(resource)
+            }
             for (subsequent in resource.subsequents) {
-                this.activateBehavior(subsequent, aCurrentEvent.sequence)
+                val isOrderingDemand =
+                    subsequent.orderingDemands != null && subsequent.orderingDemands!!.contains(resource)
+                if (!isOrderingDemand) {
+                    activateBehavior(subsequent, aCurrentEvent.sequence)
+                }
             }
         }
     }
@@ -141,48 +241,67 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     private fun activateBehavior(behavior: Behavior, sequence: Long) {
         if (behavior.enqueuedWhen == null || behavior.enqueuedWhen!! < sequence) {
             behavior.enqueuedWhen = sequence
-            //note addLast() versus the javascript push(), which here would add first and in javascript appends
-            this.activatedBehaviors.add(behavior)
+            activatedBehaviors.add(behavior)
         }
     }
 
     private fun runNextBehavior(sequence: Long) {
-        if (this.activatedBehaviors.isEmpty()) {
+        if (activatedBehaviors.isEmpty()) {
             return
         }
-        val behavior = this.activatedBehaviors.remove()
+        val behavior = activatedBehaviors.remove()
         if (behavior.removedWhen != sequence) {
-            this.currentBehavior = behavior
-            behavior.block(behavior.extent!!)
-            this.currentBehavior = null
+            currentBehavior = behavior
+            behavior.block(behavior.extent)
+            currentBehavior = null
         }
     }
 
-    internal fun sideEffect(extent: Extent<*>, name: String?, block: (extent: Extent<*>) -> Unit) {
+    fun sideEffect(debugName: String? = null, block: () -> Unit) {
+        sideEffectHelper(SideEffect(block, currentBehavior, debugName))
+    }
+
+    internal fun sideEffectHelper(sideEffect: RunnableSideEffect) {
         if (this.currentEvent == null) {
             throw BehaviorGraphException("Effects can only be added during an event loop.")
+        } else if (eventLoopState!!.phase == EventLoopPhase.sideEffects) {
+            throw BehaviorGraphException("Nested side effects are disallowed.")
         } else {
-            this.effects.addLast(SideEffect(name, block, extent))
+            this.effects.addLast(sideEffect)
         }
+
     }
 
     private fun addUntrackedBehaviors(sequence: Long) {
-        for (behavior in this.untrackedBehaviors) {
-            this.activateBehavior(behavior, sequence)
-            this.modifiedDemandBehaviors.add(behavior)
-            this.modifiedSupplyBehaviors.add(behavior)
+        for (behavior in untrackedBehaviors) {
+            modifiedDemandBehaviors.add(behavior)
+            modifiedSupplyBehaviors.add(behavior)
         }
-        this.untrackedBehaviors.clear()
+        untrackedBehaviors.clear()
     }
 
-    //Note: parameter sequence not used. We'll keep because typescript uses it.
-    private fun addUntrackedSupplies(sequence: Long) {
+    private fun addUntrackedSupplies() {
         modifiedSupplyBehaviors.forEach { behavior ->
             behavior.untrackedSupplies?.let { behaviorUntrackedSupplies ->
-                behavior.supplies?.forEach { existingSupply ->
-                    existingSupply.suppliedBy = null
+                if (validateLifetimes) {
+                    behavior.untrackedSupplies?.forEach { existingSupply ->
+                        if (!behavior.extent.hasCompatibleLifetime(existingSupply.extent)) {
+                            throw BehaviorGraphException("Static supplies can only be with extents with the unified or parent lifetimes. Supply=$existingSupply")
+                        }
+                    }
                 }
-                behavior.supplies = HashSet(behaviorUntrackedSupplies)
+
+                val allUntrackedSupplies: MutableSet<Resource> = mutableSetOf()
+                if (behavior.untrackedSupplies != null) {
+                    allUntrackedSupplies.addAll(behavior.untrackedSupplies!!)
+                }
+                if (behavior.untrackedDynamicSupplies != null) {
+                    allUntrackedSupplies.addAll(behavior.untrackedDynamicSupplies!!)
+                }
+
+                behavior.supplies?.forEach { it.suppliedBy = null }
+
+                behavior.supplies = allUntrackedSupplies
                 behavior.supplies?.forEach { newSupply: Resource ->
                     if (newSupply.suppliedBy != null && newSupply.suppliedBy !== behavior) {
                         throw ResourceCannotBeSuppliedByMoreThanOneBehaviorException(
@@ -193,11 +312,14 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                     }
                     newSupply.suppliedBy = behavior
                 }
-                behavior.untrackedSupplies = null
+
                 // technically this doesn't need reordering but its subsequents will
                 // setting this to reorder will also adjust its subsequents if necessary
                 // in the sortDFS code
-                this.needsOrdering.add(behavior)
+                if (behavior.orderingState != OrderingState.NeedsOrdering) {
+                    behavior.orderingState = OrderingState.NeedsOrdering
+                    this.needsOrdering.add(behavior)
+                }
             }
         }
         this.modifiedSupplyBehaviors.clear()
@@ -205,66 +327,92 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
 
     private fun addUntrackedDemands(sequence: Long) {
         modifiedDemandBehaviors.forEach { behavior ->
-            behavior.untrackedDemands?.let { untrackedDemands ->
-                var removedDemands: MutableList<Resource>? = null
-                behavior.demands?.forEach { demand ->
-                    if (!untrackedDemands.contains(demand)) {
-                        if (removedDemands == null) {
-                            removedDemands = ArrayList()
-                        }
-                        removedDemands?.add(demand)
+            if (validateLifetimes) {
+                behavior.untrackedDemands?.forEach { demand ->
+                    if (!behavior.extent.hasCompatibleLifetime(demand.resource.extent)) {
+                        throw BehaviorGraphException("Static demands can only be assigned across extents with a unified or parent lifetime.")
                     }
                 }
-                var addedDemands: MutableList<Resource>? = null
+            }
 
-                for (untrackedDemand in untrackedDemands) {
-                    if (!untrackedDemand.added) {
-                        throw AllDemandsMustBeAddedToTheGraphExceptions(
-                            "All demands must be added to the graph.",
-                            behavior,
-                            untrackedDemand
-                        )
+            val allUntrackedDemands: MutableSet<Demandable> = mutableSetOf()
+            if (behavior.untrackedDemands != null) {
+                allUntrackedDemands.addAll(behavior.untrackedDemands!!)
+            }
+            if (behavior.untrackedDynamicDemands != null) {
+                allUntrackedDemands.addAll(behavior.untrackedDynamicDemands!!)
+            }
+
+            var removedDemands: MutableList<Resource>? = null
+            behavior.demands?.forEach { demand ->
+                if (!allUntrackedDemands.contains(demand)) {
+                    if (removedDemands == null) {
+                        removedDemands = mutableListOf()
                     }
-                    if (behavior.demands == null || !behavior.demands!!.contains(untrackedDemand)) {
-                        if (addedDemands == null) {
-                            addedDemands = ArrayList()
-                        }
-                        addedDemands.add(untrackedDemand)
-                    }
+                    removedDemands!!.add(demand)
                 }
-                var needsRunning = false
+            }
 
-                removedDemands?.let { localRemovedDemands ->
+            var addedDemands: MutableList<Resource>? = null
+            for (link in allUntrackedDemands) {
+                val untrackedDemand = link.resource
+                if (untrackedDemand.extent.addedToGraphWhen == null) {
+                    throw AllDemandsMustBeAddedToTheGraphExceptions(
+                        "All demands must be added to the graph.",
+                        behavior,
+                        untrackedDemand
+                    )
+                }
+                if (behavior.demands == null || !behavior.demands!!.contains(untrackedDemand)) {
+                    if (addedDemands == null) {
+                        addedDemands = ArrayList()
+                    }
+                    addedDemands.add(untrackedDemand)
+                }
+            }
+            var needsRunning = false
+
+            removedDemands?.forEach { it.subsequents.remove(behavior) }
+            var orderBehavior = behavior.orderingState != OrderingState.Ordered
+
+            addedDemands?.forEach { demand ->
+                demand.subsequents.add(behavior)
+                if (demand.justUpdated) {
                     needsRunning = true
-                    for (demand in localRemovedDemands) {
-                        demand.subsequents.remove(behavior)
+                }
+                if (!orderBehavior) {
+                    val prior = demand.suppliedBy
+                    if (prior != null && prior.orderingState == OrderingState.Ordered && prior.order >= behavior.order) {
+                        orderBehavior = true
                     }
                 }
-                var orderBehavior = behavior.orderingState == OrderingState.Unordered
+            }
 
-                addedDemands?.let { localAddedDemands ->
-                    needsRunning = true
-                    for (demand in localAddedDemands) {
-                        demand.subsequents.add(behavior)
-
-                        if (!orderBehavior) {
-                            val prior = demand.suppliedBy
-                            if (prior != null && prior.orderingState == OrderingState.Ordered && prior.order >= behavior.order) {
-                                orderBehavior = true
-                            }
-                        }
+            var newDemands: MutableSet<Resource>? = null
+            var orderingDemands: MutableSet<Resource>? = null
+            allUntrackedDemands.forEach { link ->
+                if (newDemands == null) {
+                    newDemands = mutableSetOf()
+                }
+                newDemands!!.add(link.resource)
+                if (link.type == LinkType.order) {
+                    if (orderingDemands == null) {
+                        orderingDemands = mutableSetOf()
                     }
+                    orderingDemands!!.add(link.resource)
                 }
+            }
+            behavior.demands = newDemands
+            behavior.orderingDemands = orderingDemands
 
-                behavior.demands = HashSet(behavior.untrackedDemands)
-                behavior.untrackedDemands = null
-
-                if (orderBehavior) {
-                    this.needsOrdering.add(behavior)
+            if (orderBehavior) {
+                if (behavior.orderingState != OrderingState.NeedsOrdering) {
+                    behavior.orderingState = OrderingState.NeedsOrdering
+                    needsOrdering.add(behavior)
                 }
-                if (needsRunning) {
-                    this.activateBehavior(behavior, sequence)
-                }
+            }
+            if (needsRunning) {
+                this.activateBehavior(behavior, sequence)
             }
         }
         this.modifiedDemandBehaviors.clear()
@@ -279,43 +427,39 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
             return
         }
         val localNeedsOrdering = ArrayList<Behavior>()
-        val traversalQueue = ArrayDeque<Behavior>()
-        // first get behaviors that need ordering and mark them as
-        // ordered so they will be traversed when first encountered
-        for (behavior in needsOrdering) {
-            behavior.orderingState = OrderingState.Ordered
-            traversalQueue.addLast(behavior)
-        }
 
-        needsOrdering.clear()
+        var x = 0
+        while (x < needsOrdering.size) {
+            var behavior = needsOrdering[x]
 
-        while (traversalQueue.isNotEmpty()) {
-            var behavior = traversalQueue.removeFirst()
-
-            if (behavior.orderingState == OrderingState.Ordered) {
-                behavior.orderingState = OrderingState.Unordered
+            if (behavior.orderingState == OrderingState.NeedsOrdering) {
+                behavior.orderingState = OrderingState.Clearing
                 localNeedsOrdering.add(behavior)
-                behavior.supplies?.forEach { aResource ->
-                    aResource.subsequents.forEach { aSubsequentBehavior ->
-                        traversalQueue.push(aSubsequentBehavior)
+                behavior.supplies?.forEach { supply ->
+                    supply.subsequents.forEach { subsequent ->
+                        if (subsequent.orderingState == OrderingState.Ordered) {
+                            subsequent.orderingState = OrderingState.NeedsOrdering
+                            needsOrdering.add(subsequent)
+                        }
                     }
                 }
             }
+            x++
         }
-        //TODO is there a kotlin idiom for the following?
+        needsOrdering.clear()
+
         val needsReheap = mutableListOf(false) // this allows out parameter
         for (behavior in localNeedsOrdering) {
-            this.sortDFS(behavior, needsReheap)
+            sortDFS(behavior, needsReheap)
         }
 
-        if (needsReheap.first()) {
-            //we've invalidated our current activatedBehaviors by changing the priority of
-            //some of the behaviors, so resort.
-            val newActivatedBehaviors = PriorityQueue<Behavior>()
-            activatedBehaviors.forEach {
-                newActivatedBehaviors.add(it)
+        if (needsReheap[0]) {
+            // priorities have changed so we need to add existing elements to a new priority queue
+            val oldQueue = activatedBehaviors
+            activatedBehaviors = PriorityQueue<Behavior>()
+            for (behavior in oldQueue) {
+                activatedBehaviors.add(behavior)
             }
-            activatedBehaviors = newActivatedBehaviors
         }
     }
 
@@ -323,19 +467,19 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         if (behavior.orderingState == OrderingState.Ordering) {
             throw BehaviorDependencyCycleDetectedException(
                 "Behavior dependency cycle detected.", behavior,
-                cycleForBehavior(behavior)
+                debugCycleForBehavior(behavior)
             )
         }
 
-        if (behavior.orderingState == OrderingState.Unordered) {
+        if (behavior.orderingState == OrderingState.Clearing) {
             behavior.orderingState = OrderingState.Ordering
             var order = 0L
-            behavior.demands?.forEach { localResource ->
-                localResource.suppliedBy?.let { localBehavior ->
-                    if (localBehavior.orderingState != OrderingState.Ordered) {
-                        this.sortDFS(localBehavior, needsReheap)
+            behavior.demands?.forEach { demand ->
+                demand.suppliedBy?.let { prior ->
+                    if (prior.orderingState != OrderingState.Ordered) {
+                        sortDFS(prior, needsReheap)
                     }
-                    order = max(order, localBehavior.order + 1)
+                    order = max(order, prior.order + 1)
                 }
             }
 
@@ -348,8 +492,8 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         }
     }
 
-    private fun cycleForBehavior(behavior: Behavior): List<Resource> {
-        var stack = ArrayList<Resource>() //we'll "push" and "pop" from the end
+    private fun debugCycleForBehavior(behavior: Behavior): List<Resource> {
+        val stack = ArrayList<Resource>() //we'll "push" and "pop" from the end
         if (cycleDFS(behavior, behavior, stack)) {
             var output = ArrayList<Resource>()
             while (stack.isNotEmpty()) {
@@ -374,7 +518,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                 if (b == target) {
                     return true
                 }
-                if (this.cycleDFS(b, target, stack)) {
+                if (cycleDFS(b, target, stack)) {
                     return true
                 }
                 stack.removeAt(stack.size - 1)
@@ -385,91 +529,99 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     }
 
     private fun addBehavior(behavior: Behavior) {
-        behavior.added = true
         this.untrackedBehaviors.add(behavior)
     }
 
-    fun updateDemands(behavior: Behavior, newDemands: List<Resource>) {
-        if (!behavior.added) {
+    internal fun updateDemands(behavior: Behavior, newDemands: List<Demandable>?) {
+        if (behavior.extent.addedToGraphWhen == null) {
             throw BehaviorGraphException("Behavior must belong to graph before updating demands: $behavior")
-        } else if (this.currentEvent == null) {
+        } else if (currentEvent == null) {
             throw BehaviorGraphException("Demands can only be updated during an event loop. Behavior=$behavior")
         }
-        behavior.untrackedDemands = newDemands
-        this.modifiedDemandBehaviors.add(behavior)
+        behavior.untrackedDynamicDemands = newDemands
+        modifiedDemandBehaviors.add(behavior)
     }
 
-    fun updateSupplies(behavior: Behavior, newSupplies: List<Resource>) {
-        if (!behavior.added) {
+    internal fun updateSupplies(behavior: Behavior, newSupplies: List<Resource>?) {
+        if (behavior.extent.addedToGraphWhen == null) {
             throw BehaviorGraphException("Behavior must belong to graph before updating supplies. Behavior=$behavior")
+        } else if (currentEvent == null) {
+            throw BehaviorGraphException("Supplies can only be updated during an event loop. Behavior=$behavior")
         }
-
-        this.currentEvent
-            ?: throw BehaviorGraphException("Supplies can only be updated during an event loop. Behavior=$behavior")
-
-        behavior.untrackedSupplies = newSupplies
-        this.modifiedSupplyBehaviors.add(behavior)
+        behavior.untrackedDynamicSupplies = newSupplies
+        modifiedSupplyBehaviors.add(behavior)
     }
 
     private fun removeBehavior(behavior: Behavior, sequence: Long) {
-        // remove all behaviors supplies from subsequents demands
-        behavior.supplies?.forEach { supply ->
-            supply.subsequents.forEach { subsequent ->
-                subsequent.demands?.remove(supply)
-            }
-            supply.subsequents.clear()
-        }
-
+        // If we demand a foreign resource then we should be
+        // removed from its list of subsequents
+        var removed = false
         behavior.demands?.forEach { demand ->
-            demand.subsequents.remove(behavior)
+            if (demand.extent != behavior.extent) {
+                demand.subsequents.remove(behavior)
+                removed = true
+            }
         }
-        behavior.demands?.clear()
+        // and remove foreign demands
+        // its faster to erase the whole list than pick out the foreign ones
+        if (removed) {
+            behavior.demands = null
+        }
 
+        // any foreign resources should no longer be supplied by this behavior
+        removed = false
+        behavior.supplies?.forEach { supply ->
+            if (supply.extent != behavior.extent) {
+                supply.suppliedBy = null
+                removed = true
+            }
+        }
+        // and clear out those foreign supplies
+        // its faster to clear whole list than pick out individual foreign ones
+        if (removed) {
+            behavior.supplies = null
+        }
 
         behavior.removedWhen = sequence
-        behavior.added = false
     }
 
-    private fun addResource(resource: Resource) {
-        resource.added = true
-    }
-
-    fun addExtent(extent: Extent<*>) {
+    internal fun addExtent(extent: Extent) {
         if (extent.addedToGraphWhen != null) {
             throw BehaviorGraphException("Extent $extent has already been added to the graph: ${extent.graph}")
         }
+        if (currentEvent == null) {
+            throw BehaviorGraphException("Extents can only be added during an event.")
+        }
 
-        this.currentEvent?.let { localCurrentEvent ->
-            extent.addedToGraphWhen = localCurrentEvent
-            extent.resources.forEach {
-                this.addResource(it)
+        if (validateLifetimes) {
+            if (extent.lifetime != null) {
+                if (extent.lifetime!!.addedToGraphWhen == null) {
+                    extent.lifetime!!.addedToGraphWhen = currentEvent!!.sequence
+                }
             }
-            extent.behaviors.forEach {
-                addBehavior(it)
+            if (extent.lifetime?.parent != null) {
+                if (extent.lifetime!!.parent!!.addedToGraphWhen == null) {
+                    throw BehaviorGraphException("Extent with child lifetime must be added after parent.")
+                }
             }
-        } ?: run {
-            throw ExtentsCanOnlyBeAddedDuringAnEventException(
-                "Extents can only be added during an event.",
-                extent
-            )
+        }
+
+        extent.addedToGraphWhen = currentEvent!!.sequence
+        extentsAdded.add(extent)
+        activateBehavior(extent.didAddBehavior, currentEvent!!.sequence)
+        for (behavior in extent.behaviors) {
+            addBehavior(behavior)
         }
     }
 
-    fun removeExtent(extent: Extent<*>) {
-        this.currentEvent?.let { localCurrentEvent ->
-            extent.resources.forEach { resource ->
-                resource.added = false
-            }
-            extent.behaviors.forEach { behavior ->
-                removeBehavior(behavior, localCurrentEvent.sequence)
-            }
-
-            extent.addedToGraphWhen = null
-        } ?: run {
-            throw ExtentsCanOnlyBeRemovedDuringAnEventException(
-                "Extents can only be removed during an event loop.",
-                extent
-            )
+    internal fun removeExtent(extent: Extent) {
+        if (currentEvent == null) {
+            throw BehaviorGraphException("Extents can only be removed during an event.")
         }
+        extentsRemoved.add(extent)
+        for (behavior in extent.behaviors) {
+            removeBehavior(behavior, currentEvent!!.sequence)
+        }
+        extent.addedToGraphWhen = null
     }
 }

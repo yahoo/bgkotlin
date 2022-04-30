@@ -105,8 +105,12 @@ open class Extent(val graph: Graph) {
         return Resource(this, name)
     }
 
-    fun <T> moment(name: String? = null): Moment<T> {
-        return Moment<T>(this, name)
+    fun <T> typedMoment(name: String? = null): TypedMoment<T> {
+        return TypedMoment<T>(this, name)
+    }
+
+    fun moment(name: String? = null): Moment {
+        return Moment(this, name)
     }
 
     fun <T> state(initialState: T, name: String? = null): State<T> {

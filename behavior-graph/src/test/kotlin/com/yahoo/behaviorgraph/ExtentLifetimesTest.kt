@@ -79,8 +79,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         // |> Given two unified lifetime extents with a foreign supply and demand
         val ext1 = Extent(g)
         val ext2 = Extent(g)
-        val r1 = ext1.moment<Unit>()
-        val r2 = ext1.moment<Unit>()
+        val r1 = ext1.moment()
+        val r2 = ext1.moment()
         ext2.behavior()
             .supplies(r2)
             .demands(r1)
@@ -103,7 +103,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         // |> Given two independent with foreign demand
         val ext1 = Extent(g)
         val ext2 = Extent(g)
-        val r1 = ext1.moment<Unit>()
+        val r1 = ext1.moment()
         ext2.behavior()
             .demands(r1)
             .runs {}
@@ -123,7 +123,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         // |> Given two independent extents with a foreign supply
         val ext1 = Extent(g)
         val ext2 = Extent(g)
-        val r1 = ext1.moment<Unit>()
+        val r1 = ext1.moment()
         ext2.behavior()
             .supplies(r1)
             .runs {}
@@ -210,8 +210,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         val ext1 = Extent(g)
         val ext2 = Extent(g)
         ext1.addChildLifetime(ext2)
-        val r1 = ext1.moment<Unit>()
-        val r2 = ext1.moment<Unit>()
+        val r1 = ext1.moment()
+        val r2 = ext1.moment()
         ext2.behavior().supplies(r2).demands(r1).runs {}
         ext1.addToGraphWithAction()
 
@@ -231,7 +231,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         val ext1 = Extent(g)
         val ext2 = Extent(g)
         ext1.addChildLifetime(ext2)
-        val r1 = ext2.moment<Unit>()
+        val r1 = ext2.moment()
         ext1.behavior().demands(r1).runs {}
 
         // |> When they are added
@@ -250,7 +250,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         val ext1 = Extent(g)
         val ext2 = Extent(g)
         ext1.addChildLifetime(ext2)
-        val r1 = ext2.moment<Unit>()
+        val r1 = ext2.moment()
         ext1.behavior().supplies(r1).runs {}
 
         // |> When they are added
@@ -359,8 +359,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         val ext3 = Extent(g)
         ext1.addChildLifetime(ext2)
         ext2.addChildLifetime(ext3)
-        val r1 = ext1.moment<Unit>()
-        val r2 = ext1.moment<Unit>()
+        val r1 = ext1.moment()
+        val r2 = ext1.moment()
 
         // |> When we link up multiple generations
         ext3.behavior().supplies(r2).demands(r1).runs {}
@@ -381,8 +381,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         val ext3 = Extent(g)
         ext1.unifyLifetime(ext2)
         ext2.addChildLifetime(ext3)
-        val r1 = ext1.moment<Unit>()
-        val r2 = ext1.moment<Unit>()
+        val r1 = ext1.moment()
+        val r2 = ext1.moment()
 
         // |> When we try to link up and across
         ext3.behavior().supplies(r2).demands(r1).runs {}
@@ -463,7 +463,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         // |> Given dynamic demands across foreign relationship
         val ext1 = Extent(g)
         val ext2 = Extent(g)
-        val r1 = ext2.moment<Unit>()
+        val r1 = ext2.moment()
         ext1.behavior()
             .dynamicDemands(ext1.didAdd) { listOf(r1) }
             .runs {}
@@ -484,7 +484,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         // |> Given dynamic supply across foreign relationship
         val ext1 = Extent(g)
         val ext2 = Extent(g)
-        val r1 = ext2.moment<Unit>()
+        val r1 = ext2.moment()
         ext1.behavior()
             .dynamicSupplies(ext1.didAdd) { listOf(r1) }
             .runs {}
@@ -532,8 +532,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         g.validateLifetimes = false
         val ext1 = Extent(g)
         val ext2 = Extent(g)
-        val r1 = ext1.moment<Unit>()
-        val r2 = ext1.moment<Unit>()
+        val r1 = ext1.moment()
+        val r2 = ext1.moment()
 
         // |> When we try to link staticly across incompatible lifetimes
         ext2.behavior().demands(r1).supplies(r2).runs {}

@@ -158,7 +158,7 @@ class StateTest : AbstractBehaviorGraphTest() {
     fun `trace tracks before and after values`() {
         // |> Given a behavior that updates a value
         val sr1 = ext.state<Int>(0, "sr1")
-        val mr1 = ext.moment<Unit>("mr1")
+        val mr1 = ext.moment("mr1")
         var before: Int? = null
         var after: Int? = null
         var afterEntered: Event? = null
@@ -175,7 +175,7 @@ class StateTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
 
         // |> When trace is accessed before the update
-        mr1.updateWithAction(Unit)
+        mr1.updateWithAction()
 
         // |> Then that value is the current value
         assertEquals(0, before)
@@ -211,7 +211,7 @@ class StateTest : AbstractBehaviorGraphTest() {
     fun `start state is transient after updates`() {
         // |> Given a state resource
         val sr1 = ext.state<Long>(0, "sr1")
-        val mr1 = ext.moment<Unit>("mr1")
+        val mr1 = ext.moment("mr1")
         ext.behavior()
             .supplies(sr1)
             .demands(mr1)
@@ -221,7 +221,7 @@ class StateTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
 
         // |> When it is updated
-        mr1.updateWithAction(Unit)
+        mr1.updateWithAction()
 
         // |> Then the start state is no longer available after the event
         assertNull(ReflectionHelpers.getField(sr1, "priorStateDuringEvent"))
@@ -249,7 +249,7 @@ class StateTest : AbstractBehaviorGraphTest() {
     fun `check supplied state is updated by supplier`() {
         // |> Given a supplied state resource
         val sr1 = ext.state<Long>(0, "sr1")
-        val mr1 = ext.moment<Unit>("mr1")
+        val mr1 = ext.moment("mr1")
         ext.behavior()
             .supplies(sr1)
             .demands(mr1)
@@ -263,14 +263,14 @@ class StateTest : AbstractBehaviorGraphTest() {
 
         // |> When it is updated by the wrong behavior
         // |> Then it should throw
-        assertBehaviorGraphException { mr1.update(Unit) }
+        assertBehaviorGraphException { mr1.update() }
     }
 
     @Test
     fun `check non supplied state is updated by action`() {
         // |> Given a state resource that is not supplied
         val sr1 = ext.state<Long>(0, "sr1")
-        val mr1 = ext.moment<Unit>("mr1")
+        val mr1 = ext.moment("mr1")
         ext.behavior()
             .demands(mr1)
             .runs {
@@ -280,7 +280,7 @@ class StateTest : AbstractBehaviorGraphTest() {
 
         // |> When it is updated by a behavior
         // |> Then it should throw
-        assertBehaviorGraphException { mr1.update(Unit) }
+        assertBehaviorGraphException { mr1.update() }
     }
 
     @Test
@@ -293,7 +293,7 @@ class StateTest : AbstractBehaviorGraphTest() {
     @Test
     fun `update when supplied by another behavior is an error`() {
         val sr1 = ext.state<Long>(0, "sr1")
-        val mr1 = ext.moment<Unit>("mr1")
+        val mr1 = ext.moment("mr1")
         ext.behavior().demands(mr1).runs {
             sr1.update(2)
         }
@@ -303,21 +303,21 @@ class StateTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction();
 
         assertBehaviorGraphException {
-            mr1.updateWithAction(Unit)
+            mr1.updateWithAction()
         }
     }
 
     @Test
     fun `unsupplied resource throws if not from action`() {
         val sr1 = ext.state<Long>(0, "sr1")
-        val mr1 = ext.moment<Unit>("mr1")
+        val mr1 = ext.moment("mr1")
         ext.behavior().demands(mr1).runs {
             sr1.update(2)
         }
         ext.addToGraphWithAction()
 
         assertBehaviorGraphException {
-            mr1.update(Unit)
+            mr1.update()
         }
     }
 

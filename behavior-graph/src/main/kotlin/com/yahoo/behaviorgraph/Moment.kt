@@ -5,11 +5,10 @@ package com.yahoo.behaviorgraph
 
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
 
-class Moment<T>(extent: Extent, debugName: String? = null) : Resource(extent, debugName),
+abstract class BaseMoment(extent: Extent, debugName: String? = null) : Resource(extent, debugName),
     Transient {
-    private var _happened = false
-    private var _happenedValue: T? = null
-    private var _happenedWhen: Event? = null
+    protected var _happened = false
+    protected var _happenedWhen: Event? = null
 
     override val justUpdated: Boolean
         get() {
@@ -18,6 +17,35 @@ class Moment<T>(extent: Extent, debugName: String? = null) : Resource(extent, de
         }
 
 
+    val event: Event?
+        get() {
+            assertValidAccessor()
+            return this._happenedWhen
+        }
+
+    override fun clear() {
+        _happened = false
+    }
+}
+
+class Moment(extent: Extent, debugName: String? = null): BaseMoment(extent, debugName) {
+    fun update() {
+        assertValidUpdater()
+        _happened = true
+        _happenedWhen = graph.currentEvent
+        graph.resourceTouched(this)
+        graph.trackTransient(this)
+    }
+
+    fun updateWithAction(debugName: String? = null) {
+        graph.action(debugName) { update() }
+    }
+
+}
+
+class TypedMoment<T>(extent: Extent, debugName: String? = null): BaseMoment(extent, debugName) {
+    private var _happenedValue: T? = null
+
     val value: T
         get() {
             assertValidAccessor()
@@ -25,18 +53,9 @@ class Moment<T>(extent: Extent, debugName: String? = null) : Resource(extent, de
             return this._happenedValue!!
         }
 
-    val event: Event?
-        get() {
-            assertValidAccessor()
-            return this._happenedWhen
-        }
-
-    fun justUpdatedTo(value: T): Boolean {
-        return this.justUpdated && this._happenedValue == value
-    }
 
     fun updateWithAction(value: T, debugName: String? = null) {
-        graph.action(debugName, { update(value) })
+        graph.action(debugName) { update(value) }
     }
 
     fun update(value: T) {
@@ -49,7 +68,12 @@ class Moment<T>(extent: Extent, debugName: String? = null) : Resource(extent, de
     }
 
     override fun clear() {
-        _happened = false
         _happenedValue = null
+        super.clear()
     }
+
+    fun justUpdatedTo(value: T): Boolean {
+        return this.justUpdated && this._happenedValue == value
+    }
+
 }

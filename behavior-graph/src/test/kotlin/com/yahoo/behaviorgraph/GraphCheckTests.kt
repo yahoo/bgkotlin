@@ -130,17 +130,17 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
 
     @Test
     fun `handled throw in behavior should clear out queued up internals`() {
-        val r1 = ext.moment<Unit>("r1")
-        val r2 = ext.moment<Unit>("r2")
-        val r3 = ext.moment<Unit>("r3")
+        val r1 = ext.moment("r1")
+        val r2 = ext.moment("r2")
+        val r3 = ext.moment("r3")
         var b3: Behavior? = null
 
         ext.behavior().supplies(r2).demands(r1).runs {
-            r2.update(Unit)
+            r2.update()
         }
 
         ext.behavior().supplies(r3).demands(r2).runs {
-            r3.update(Unit)
+            r3.update()
             b3!!.setDynamicDemands(listOf())
             b3!!.setDynamicSupplies(listOf())
             throw Exception()
@@ -153,7 +153,7 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
         assertExpectedException(Exception::class) {
             g.action("r1") {
-                r1.update(Unit)
+                r1.update()
             }
         }
 
@@ -189,7 +189,7 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
     @Test
     fun `check cannot demand a resource from an extent that has not been added to graph`() {
         val ext3 = Extent(g)
-        val mr1 = ext3.moment<Unit>()
+        val mr1 = ext3.moment()
         ext.behavior().demands(mr1).runs {
 
         }

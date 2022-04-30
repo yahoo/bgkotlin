@@ -118,8 +118,8 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         // |> Given we have a behavior which has foreign and local demands
         val ext2 = Extent(g)
         ext.addChildLifetime(ext2)
-        val demanded1 = ext.moment<Unit>("demanded1")
-        val demanded2 = ext2.moment<Unit>("demanded2")
+        val demanded1 = ext.moment("demanded1")
+        val demanded2 = ext2.moment("demanded2")
         val ext2behavior = ext2.behavior().demands(demanded1, demanded2).runs {
         }
         g.action {
@@ -144,8 +144,8 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         // |> Given we have a behavior which supplies both foreign and local resources
         val ext2 = Extent(g)
         ext.addChildLifetime(ext2)
-        val supplied1 = ext.moment<Unit>("supplied1")
-        val supplied2 = ext2.moment<Unit>("supplied2")
+        val supplied1 = ext.moment("supplied1")
+        val supplied2 = ext2.moment("supplied2")
         val ext2behavior = ext2.behavior().supplies(supplied1, supplied2).runs {
         }
         g.action {
@@ -255,9 +255,9 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         // foreign extent that may not be there with nullish coalescing
 
         // |> Given a behavior with dynamic demands/supplies
-        val r1 = ext.moment<Unit>()
-        val r2 = ext.moment<Unit>()
-        val r3 = ext.moment<Unit>()
+        val r1 = ext.moment()
+        val r2 = ext.moment()
+        val r3 = ext.moment()
         var didRun = false
         ext.behavior()
             .dynamicDemands(r1) {
@@ -268,13 +268,13 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
             }
             .runs {
                 didRun = true
-                r3.update(Unit)
+                r3.update()
             }
         ext.addToGraphWithAction()
 
         // |> When demands/supplies relink with undefined in the list of links
-        r1.updateWithAction(Unit)
-        r2.updateWithAction(Unit)
+        r1.updateWithAction()
+        r2.updateWithAction()
 
         // |> Then behavior should run as expected with undefined filtered out
         assertTrue(didRun)
@@ -333,7 +333,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `changing supplies will unsupply old resources`() {
         // |> Given we have a resource supplied by a behavior
-        val m1 = ext.moment<Unit>()
+        val m1 = ext.moment()
         val b1 = ext.behavior().runs {
             // do nothing
         }
@@ -355,9 +355,9 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `dynamicDemands clause updates demands`() {
         // |> Given a behavior with dynamicDemands
-        val m1 = ext.moment<Unit>()
-        val m2 = ext.moment<Unit>()
-        val m3 = ext.moment<Unit>()
+        val m1 = ext.moment()
+        val m2 = ext.moment()
+        val m3 = ext.moment()
         var runCount = 0
         var relinkBehaviorOrder: Long = 0
         var behaviorOrder: Long = 0
@@ -374,20 +374,20 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
 
         // |> When net yet demanded resource is updated
-        m3.updateWithAction(Unit)
+        m3.updateWithAction()
 
         // |> Then behavior is not run
         assertEquals(runCount, 0)
 
         // |> And when an update activates a relink and we update
-        m2.updateWithAction(Unit)
-        m3.updateWithAction(Unit)
+        m2.updateWithAction()
+        m3.updateWithAction()
 
         // |> Then behavior will be run
         assertEquals(runCount, 1)
 
         // |> And when we update original static resource
-        m1.updateWithAction(Unit)
+        m1.updateWithAction()
 
         // |> Then we expect behavior to also run
         assertEquals(runCount, 2)
@@ -400,7 +400,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `dynamicDemands clause with no static demands gets order correct`() {
         // |> Given a behavior with dynamic demands and no static demands
-        val m1 = ext.moment<Unit>()
+        val m1 = ext.moment()
         var relinkingOrder: Long? = null
         var behaviorOrder: Long? = null
         ext.behavior()
@@ -415,7 +415,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
         // |> When resource causes activation on both
         g.action {
-            m1.update(Unit)
+            m1.update()
         }
 
         // |> Expect the relinking behavior to come first
@@ -425,9 +425,9 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `dynamicSupplies clause updates supplies`() {
         // |> Given a behavior with dynamicSupplies
-        val m1 = ext.moment<Unit>()
-        val m2 = ext.moment<Unit>()
-        val m3 = ext.moment<Unit>()
+        val m1 = ext.moment()
+        val m2 = ext.moment()
+        val m3 = ext.moment()
 
         var relinkingBehaviorOrder: Long = 0
         var behaviorOrder: Long = 0
@@ -439,22 +439,22 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
             }
             .runs {
                 behaviorOrder = ext.graph.currentBehavior!!.order
-                m3.update(Unit)
+                m3.update()
             }
         ext.addToGraphWithAction()
 
         // |> When behavior activated before relink is activated
         // |> Then action should throw because behavior does not supply that resource
         assertBehaviorGraphException {
-            m1.update(Unit)  // cannot update unsupplied resource
+            m1.update()  // cannot update unsupplied resource
         }
 
         // |> And when behavior has its supplies relinked
-        m2.updateWithAction(Unit)
+        m2.updateWithAction()
 
         // |> Then the behavior can activate and update the newly supplied resource
         g.action {
-            m1.update(Unit)
+            m1.update()
             g.sideEffect {
                 assertTrue(m3.justUpdated)
             }
@@ -468,8 +468,8 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `setDynamicDemands retains statics`() {
         // |> Given a behavior with static demands
-        val m1 = ext.moment<Unit>()
-        val m2 = ext.moment<Unit>()
+        val m1 = ext.moment()
+        val m2 = ext.moment()
         var run = false
         val b1 = ext.behavior().demands(m1).runs {
             run = true
@@ -482,12 +482,12 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         }
 
         // |> Then behavior runs on newly added dynamicDemand
-        m2.updateWithAction(Unit)
+        m2.updateWithAction()
         assertTrue(run)
 
         // |> And when static demand is updated
         run = false
-        m1.updateWithAction(Unit)
+        m1.updateWithAction()
 
         // |> Then it will also update
         assertTrue(run)
@@ -496,12 +496,12 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `setDynamicSupplies retains statics`() {
         // |> Given behavior that supplies one resource
-        val m1 = ext.moment<Unit>()
-        val m2 = ext.moment<Unit>()
-        val m3 = ext.moment<Unit>()
+        val m1 = ext.moment()
+        val m2 = ext.moment()
+        val m3 = ext.moment()
         val b1 = ext.behavior().demands(m1).supplies(m2).runs {
-            m2.update(Unit)
-            m3.update(Unit)
+            m2.update()
+            m3.update()
         }
         ext.addToGraphWithAction()
 
@@ -512,7 +512,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
         // |> Then behavior updates both successfully
         g.action {
-            m1.update(Unit)
+            m1.update()
             g.sideEffect {
                 assertTrue(m2.justUpdated)
                 assertTrue(m3.justUpdated)
@@ -523,8 +523,8 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `updating demands on behavior that has already run will affect future events`() {
         // |> Given a behavior that demands one resource
-        val m1 = ext.moment<Unit>()
-        val m2 = ext.moment<Unit>()
+        val m1 = ext.moment()
+        val m2 = ext.moment()
         var run = false
         ext.behavior().demands(m1).runs {
             ext.graph.currentBehavior!!.setDynamicDemands(m2)
@@ -533,23 +533,23 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
 
         // It doesn't activate on other resource
-        m2.updateWithAction(Unit)
+        m2.updateWithAction()
         assertFalse(run)
 
         // |> When behavior updates demands on itself to include m2
-        m1.updateWithAction(Unit)
+        m1.updateWithAction()
         run = false
 
         // |> Then m2 updating will activate the behavior
-        m2.updateWithAction(Unit)
+        m2.updateWithAction()
         assertTrue(run)
     }
 
     @Test
     fun `can relink dynamicDemands after a behavior runs`() {
         // |> Given a behavior with subsequent relinking that demands m2
-        val m1 = ext.moment<Unit>("m1")
-        val m2 = ext.moment<Unit>("m2")
+        val m1 = ext.moment("m1")
+        val m2 = ext.moment("m2")
 
         var didRun = false
 
@@ -572,8 +572,8 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
         // |> When m2 is removed but still demanded
         g.action {
-            m1.update(Unit)
-            m2.update(Unit)
+            m1.update()
+            m2.update()
         }
 
         // |> Then behavior is run first
@@ -582,7 +582,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
         // |> And when that resource is updated in a future event
         didRun = false
-        m2.updateWithAction(Unit)
+        m2.updateWithAction()
 
         // |> Then it is no longer demanded
         assertFalse(didRun)
@@ -597,7 +597,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
         // |> Given a behavior that doesn't supply anything but will dynamically afterwards
         val s1 = ext.state<Long>(0)
-        val m1 = ext.moment<Unit>()
+        val m1 = ext.moment()
         ext.behavior()
             .dynamicSupplies(m1, relinkingOrder = RelinkingOrder.relinkingOrderSubsequent) {
                 return@dynamicSupplies listOf(s1)
@@ -611,13 +611,13 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
 
         // |> When we update m1
-        m1.updateWithAction(Unit)
+        m1.updateWithAction()
 
         // |> Then we should get no output the first time (it was just resupplied after)
         assertEquals(s1.value, 0)
 
         // |> And when we update m1 again
-        m1.updateWithAction(Unit)
+        m1.updateWithAction()
 
         // |> Then we should expect the previous resupplying vals us update
         assertEquals(s1.value, 1)
@@ -627,7 +627,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     fun `dynamicDemands must be in the graph`() {
         // |> Given an extent with foreign demands that haven't been added
         val ext1 = Extent(g)
-        val r1 = ext1.moment<Unit>()
+        val r1 = ext1.moment()
         val ext2 = Extent(g)
         ext2.behavior().dynamicDemands(ext2.didAdd) { listOf(r1) }.runs {}
         // |> When that extent is added

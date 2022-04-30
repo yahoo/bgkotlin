@@ -70,12 +70,12 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `transient values are cleared after effects are run`() {
-        val r1 = Moment<Unit>(ext, "r1")
+        val r1 = Moment(ext, "r1")
         ext.behavior()
             .supplies(r1)
             .demands(r_a)
             .runs { extent ->
-                r1.update(Unit)
+                r1.update()
                 extent.sideEffect("after") {
                     assertTrue(r_a.justUpdatedTo(1))
                     assertTrue(r1.justUpdated)
@@ -93,7 +93,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
     fun `effects from first event loop complete before next event loop`() {
         // |> Given event loop with 2 effects
         var effectCounter = 0
-        val m1 = Moment<Unit>(ext, "m1")
+        val m1 = Moment(ext, "m1")
         var eventLoopOrder: Int? = null
         var effect2Order: Int? = null
         ext.behavior()
@@ -111,7 +111,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
 
         // |> When the first effect initiates a new event loop
-        m1.updateWithAction(Unit)
+        m1.updateWithAction()
 
         // |> Then the second effect will run before the new event loop
         assertEquals(0, effect2Order)
@@ -226,21 +226,21 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `actions have knowledge of changes for debugging`() {
-        val m1 = ext.moment<Unit>()
-        val m2 = ext.moment<Unit>()
-        val m3 = ext.moment<Unit>()
+        val m1 = ext.moment()
+        val m2 = ext.moment()
+        val m3 = ext.moment()
 
         var actionUpdatesDuring: List<Resource>? = null
         ext.behavior().demands(m1).supplies(m3).runs {
-            m3.update(Unit)
+            m3.update()
             actionUpdatesDuring = ext.graph.actionUpdates
         }
         ext.addToGraphWithAction()
 
         // |> When action updates multiple resources
         g.action {
-            m1.update(Unit)
-            m2.update(Unit)
+            m1.update()
+            m2.update()
         }
 
         // |> Then that information is available during the current event
@@ -251,7 +251,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `actions have debugName`() {
-        var m1 = ext.moment<Unit>();
+        var m1 = ext.moment();
         var s1 = ext.state<Long>(1);
         var lastActionName: String? = null
         ext.behavior().demands(ext.didAdd, m1, s1).runs {
@@ -261,18 +261,18 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
         assertEquals(lastActionName, "added")
 
         g.action("1") {
-            m1.update(Unit);
+            m1.update();
         }
 
         assertEquals(lastActionName, "1")
 
         g.actionAsync("2") {
-            m1.update(Unit);
+            m1.update();
         }
 
         assertEquals(lastActionName, "2")
 
-        m1.updateWithAction(Unit,"3")
+        m1.updateWithAction("3")
 
         assertEquals(lastActionName, "3")
 
@@ -280,13 +280,13 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
         assertEquals(lastActionName, "4")
 
         ext.action("5") {
-            m1.update(Unit)
+            m1.update()
         }
 
         assertEquals(lastActionName, "5")
 
         ext.actionAsync("6") {
-            m1.update(Unit)
+            m1.update()
         }
 
         assertEquals(lastActionName, "6")
@@ -294,12 +294,12 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `sideEffects have debugName`() {
-        val m1 = ext.moment<Unit>()
-        val m2 = ext.moment<Unit>()
+        val m1 = ext.moment()
+        val m2 = ext.moment()
         var firstSideEffectName: String? = null
         var secondSideEffectName: String? = null
         ext.behavior().supplies(m2).demands(m1).runs {
-            m2.update(Unit)
+            m2.update()
             ext.sideEffect("1") {
                 firstSideEffectName = ext.graph.currentSideEffect?.debugName
             }
@@ -310,7 +310,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
             }
         }
         ext.addToGraphWithAction()
-        m1.updateWithAction(Unit)
+        m1.updateWithAction()
 
         assertEquals(firstSideEffectName, "1")
         assertNull(secondSideEffectName)
@@ -332,7 +332,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `defining behavior visible inside side effect`() {
-        var m1 = ext.moment<Unit>()
+        var m1 = ext.moment()
         var defininingBehavior: Behavior? = null
         var createdBehavior = ext.behavior().demands(m1).runs {
             ext.sideEffect {
@@ -341,14 +341,14 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
         }
 
         ext.addToGraphWithAction()
-        m1.updateWithAction(Unit)
+        m1.updateWithAction()
 
         assertEquals(defininingBehavior, createdBehavior)
     }
 
     @Test
     fun `action inside sideEffect has extent`() {
-        val m1 = ext.moment<Unit>()
+        val m1 = ext.moment()
         var insideExtent: Extent? = null
         ext.behavior().demands(m1).runs {
             ext.sideEffect {
@@ -358,7 +358,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
             }
         }
         ext.addToGraphWithAction()
-        m1.updateWithAction(Unit)
+        m1.updateWithAction()
 
         assertEquals(insideExtent, ext)
     }

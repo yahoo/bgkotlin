@@ -3,6 +3,6 @@
 //
 package com.yahoo.behaviorgraph
 
-interface Transient {
-    fun clear() : Unit
+internal interface Transient {
+    fun clear()
 }

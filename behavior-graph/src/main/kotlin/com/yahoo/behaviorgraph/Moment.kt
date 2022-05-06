@@ -3,32 +3,39 @@
 //
 package com.yahoo.behaviorgraph
 
-import com.yahoo.behaviorgraph.exception.BehaviorGraphException
+/**
+ * A Moment is a type of resource is a type of Resource for tracking information that exists at a
+ * single moment in time. A Button press is an example of a moment. It happens and then it is over.
+ * Use [TypedMoment] if you wish to associate additional data with a Moment.
+ */
+class Moment(extent: Extent, debugName: String? = null): Resource(extent, debugName), Transient {
+    private var _happened = false
+    private var _happenedWhen: Event? = null
 
-abstract class BaseMoment(extent: Extent, debugName: String? = null) : Resource(extent, debugName),
-    Transient {
-    protected var _happened = false
-    protected var _happenedWhen: Event? = null
-
-    override val justUpdated: Boolean
-        get() {
-            assertValidAccessor()
-            return _happened
-        }
-
-
+    /**
+     * If this Moment has ever been update what was the last Event it was updated.
+     * A behavior must demand this resource to access this property.
+     */
     val event: Event?
         get() {
             assertValidAccessor()
             return this._happenedWhen
         }
 
-    override fun clear() {
-        _happened = false
-    }
-}
+    /**
+     * Is there a current event and was this Moment resource updated during this event.
+     * A behavior must demand this resource to access this property.
+     */
+    override val justUpdated: Boolean
+        get() {
+            assertValidAccessor()
+            return _happened
+        }
 
-class Moment(extent: Extent, debugName: String? = null): BaseMoment(extent, debugName) {
+    /**
+     * Mark this Moment resource as updated an activate any dependent behaviors.
+     * A behavior must supply this resource in order to update it.
+     */
     fun update() {
         assertValidUpdater()
         _happened = true
@@ -37,43 +44,15 @@ class Moment(extent: Extent, debugName: String? = null): BaseMoment(extent, debu
         graph.trackTransient(this)
     }
 
+    /**
+     * Create a new action and call [update].
+     */
     fun updateWithAction(debugName: String? = null) {
         graph.action(debugName) { update() }
     }
 
-}
-
-class TypedMoment<T>(extent: Extent, debugName: String? = null): BaseMoment(extent, debugName) {
-    private var _happenedValue: T? = null
-
-    val value: T
-        get() {
-            assertValidAccessor()
-            if (!_happened) { throw BehaviorGraphException("Cannot access moment value when it did not update.") }
-            return this._happenedValue!!
-        }
-
-
-    fun updateWithAction(value: T, debugName: String? = null) {
-        graph.action(debugName) { update(value) }
-    }
-
-    fun update(value: T) {
-        assertValidUpdater()
-        _happened = true
-        _happenedValue = value
-        _happenedWhen = graph.currentEvent
-        graph.resourceTouched(this)
-        graph.trackTransient(this)
-    }
-
     override fun clear() {
-        _happenedValue = null
-        super.clear()
-    }
-
-    fun justUpdatedTo(value: T): Boolean {
-        return this.justUpdated && this._happenedValue == value
+        _happened = false
     }
 
 }

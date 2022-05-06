@@ -3,7 +3,7 @@ project.ext.artifactId = 'behavior-graph'
 version = '0.9.0'
 
 buildscript {
-    ext.kotlin_version = '1.5.21'
+    ext.kotlin_version = '1.6.21'
     repositories {
         mavenLocal()
         mavenCentral()
@@ -13,8 +13,10 @@ buildscript {
         // Build system
         classpath 'com.android.tools.build:gradle:4.2.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.dokka:dokka-gradle-plugin:$kotlin_version"
     }
 }
+
 
 allprojects {
     repositories {

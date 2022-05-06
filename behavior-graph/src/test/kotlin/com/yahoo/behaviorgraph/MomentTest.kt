@@ -3,10 +3,7 @@
 //
 package com.yahoo.behaviorgraph
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.*
 
 class MomentTest : AbstractBehaviorGraphTest() {
     @Test

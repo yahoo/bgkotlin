@@ -3,22 +3,38 @@
 //
 package com.yahoo.behaviorgraph
 
+/**
+ * A behavior is a block of code together with its dependency relationships (links). They are one of the two node types in a behavior graph. You define behaviors using the behavior() factory method of an Extent.
+ *
+ * Behaviors have both static and dynamic links. You provide static links when you create the behavior. Behavior Graph will update dynamic links per special methods on BehaviorBuilder or you can update them directly on a behavior.
+ * @property extent A behavior always has an [Extent] with which it is created.
+ */
 class Behavior(
     val extent: Extent, demands: List<Demandable>?, supplies: List<Resource>?,
-    var block: (Extent) -> Unit
+    internal var block: (Extent) -> Unit
 ) : Comparable<Behavior> {
+    /**
+     * The current set of all Resources which the behavior demands.
+     */
     var demands: MutableSet<Resource>? = null
-    var orderingDemands: MutableSet<Resource>?  = null
+        internal set
+    internal var orderingDemands: MutableSet<Resource>?  = null
+
+    /**
+     * The current set of all Resources which the behavior supplies.
+     */
     var supplies: Set<Resource>? = null
-    var enqueuedWhen: Long? = null
-    var removedWhen: Long? = null
+        internal set
+    internal var enqueuedWhen: Long? = null
+    internal var removedWhen: Long? = null
     internal var orderingState = OrderingState.Untracked
     var order: Long = 0
+        internal set
 
-    var untrackedDemands: List<Demandable>?
-    var untrackedDynamicDemands: List<Demandable>? = null
-    var untrackedSupplies: List<Resource>?
-    var untrackedDynamicSupplies: List<Resource>? = null
+    internal var untrackedDemands: List<Demandable>?
+    internal var untrackedDynamicDemands: List<Demandable>? = null
+    internal var untrackedSupplies: List<Resource>?
+    internal var untrackedDynamicSupplies: List<Resource>? = null
 
     init {
         extent.addBehavior(this)
@@ -34,18 +50,30 @@ class Behavior(
         return "Behavior()"
     }
 
+    /**
+     * Provide an array of Demandables. undefined is also an element type to make for easier use of optional chaining. Providing null is equivalent to saying there are no dynamic demands.
+     */
     fun setDynamicDemands(vararg newDemands: Demandable) {
         setDynamicDemands(newDemands.asList())
     }
 
+    /**
+     * Provide an array of Demandables. undefined is also an element type to make for easier use of optional chaining. Providing null is equivalent to saying there are no dynamic demands.
+     */
     fun setDynamicDemands(newDemands: List<Demandable?>?) {
         this.extent.graph.updateDemands(this, newDemands?.filterNotNull())
     }
 
+    /**
+     * Provide an array of Resources to supply. undefined is also an element type to make for easier use of optional chaining. Providing null is equivalent to saying there are no dynamic supplies.
+     */
     fun setDynamicSupplies(vararg newSupplies: Resource) {
         setDynamicSupplies(newSupplies.asList())
     }
 
+    /**
+     * Provide an array of Resources to supply. undefined is also an element type to make for easier use of optional chaining. Providing null is equivalent to saying there are no dynamic supplies.
+     */
     fun setDynamicSupplies(newSupplies: List<Resource?>?) {
         this.extent.graph.updateSupplies(this, newSupplies?.filterNotNull())
     }

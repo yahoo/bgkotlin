@@ -4,21 +4,29 @@
 package com.yahoo.behaviorgraph
 
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
-import java.util.HashSet
 
+/**
+ * A Resource is a node which connects between Behaviors. It can be demanded or supplied.
+ * This is the base class for [Moment] [TypedMoment] and [State] resources.
+ * In almost all scenarios you are interested in one of those.
+ *
+ * You may wish to use this Resource to enforce ordering between two behaviors without
+ * implying any other relationship.
+ */
 open class Resource(val extent: Extent, var debugName: String? = null): Demandable {
     val graph: Graph = extent.graph
-    var subsequents: MutableSet<Behavior> = mutableSetOf()
+    internal var subsequents: MutableSet<Behavior> = mutableSetOf()
     var suppliedBy: Behavior? = null
+        internal set
 
     override val resource get() = this
-    override val type get() = LinkType.reactive
+    override val type get() = LinkType.Reactive
 
     init {
         extent.addResource(this)
     }
 
-    val order: Demandable get() = DemandLink(this, LinkType.order)
+    val order: Demandable get() = DemandLink(this, LinkType.Order)
 
     internal fun assertValidUpdater() {
         val currentBehavior = graph.currentBehavior
@@ -44,6 +52,9 @@ open class Resource(val extent: Extent, var debugName: String? = null): Demandab
         }
     }
 
+    /**
+     * Always returns false.
+     */
     open val justUpdated: Boolean get() {
         assertValidAccessor()
         return false

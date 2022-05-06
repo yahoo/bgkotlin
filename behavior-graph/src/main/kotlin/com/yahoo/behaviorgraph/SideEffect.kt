@@ -3,13 +3,20 @@
 //
 package com.yahoo.behaviorgraph
 
-interface RunnableSideEffect {
+/**
+ * SideEffects are blocks of code that are guaranteed to run at the end of the current event.
+ * Use them to create output to external APIs.
+ */
+interface SideEffect {
     val debugName: String?
     val behavior: Behavior?
+}
+
+internal interface RunnableSideEffect: SideEffect {
     fun runSideEffect()
 }
 
-internal class SideEffect(val block: () -> Unit, override val behavior: Behavior?, override val debugName: String?): RunnableSideEffect {
+internal class GraphSideEffect(val block: () -> Unit, override val behavior: Behavior?, override val debugName: String?): RunnableSideEffect {
     override fun runSideEffect() {
         block()
     }

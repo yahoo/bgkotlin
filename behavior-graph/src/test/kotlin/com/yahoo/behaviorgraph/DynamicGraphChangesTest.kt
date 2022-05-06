@@ -3,8 +3,7 @@
 //
 package com.yahoo.behaviorgraph
 
-import org.junit.Assert.*
-import org.junit.Test
+import kotlin.test.*
 
 class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
@@ -31,9 +30,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         val ext2 = Extent(g)
         setupExt.addChildLifetime(ext2)
         ext2.behavior().demands(r_b).supplies(r_c).runs {
-            if (r_b.event != null) {
-                r_c.update(r_b.value + 1)
-            }
+            r_c.update(r_b.value + 1)
         }
 
         // -- this behavior adds the extent on event happening
@@ -96,8 +93,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `removed extents remove components from graph`() {
         // given an added behavior
-        val r_x = ext.state(0, "r_x")
-        val b_a = ext.behavior().demands(r_a).supplies(r_b).runs {
+        ext.behavior().demands(r_a).supplies(r_b).runs {
             r_b.update(r_a.value + 1)
         }
         ext.addToGraphWithAction()
@@ -556,7 +552,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         var relinkingOrder: Long? = null
         var behaviorOrder: Long? = null
         ext.behavior()
-            .dynamicDemands(m1, ext.didAdd, relinkingOrder = RelinkingOrder.relinkingOrderSubsequent) {
+            .dynamicDemands(m1, ext.didAdd, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) {
                 if (ext.didAdd.justUpdated) {
                     return@dynamicDemands listOf(m2)
                 } else {
@@ -599,10 +595,10 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         val s1 = ext.state<Long>(0)
         val m1 = ext.moment()
         ext.behavior()
-            .dynamicSupplies(m1, relinkingOrder = RelinkingOrder.relinkingOrderSubsequent) {
+            .dynamicSupplies(m1, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) {
                 return@dynamicSupplies listOf(s1)
             }
-        .demands(m1)
+            .demands(m1)
             .runs {
                 if (g.currentBehavior!!.supplies?.contains(s1) ?: false) {
                     s1.update(1)

@@ -4,14 +4,7 @@
 package com.yahoo.behaviorgraph
 
 import com.yahoo.behaviorgraph.exception.BehaviorDependencyCycleDetectedException
-import com.yahoo.behaviorgraph.exception.BehaviorGraphException
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
-import org.junit.Test
-import org.robolectric.util.ReflectionHelpers
+import kotlin.test.*
 
 class GraphCheckTests : AbstractBehaviorGraphTest() {
 
@@ -159,15 +152,15 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
 
         assertNull(g.currentEvent)
         assertNull(g.currentBehavior)
-        assertEquals(0, (ReflectionHelpers.getField(g, "activatedBehaviors") as Collection<*>).size)
+        assertEquals(0, (reflectionGetField(g, "activatedBehaviors") as Collection<*>).size)
         assertFalse(r1.justUpdated)
         assertEquals(
             0,
-            (ReflectionHelpers.getField(g, "modifiedSupplyBehaviors") as Collection<*>).size
+            (reflectionGetField(g, "modifiedSupplyBehaviors") as Collection<*>).size
         )
         assertEquals(
             0,
-            (ReflectionHelpers.getField(g, "modifiedDemandBehaviors") as Collection<*>).size
+            (reflectionGetField(g, "modifiedDemandBehaviors") as Collection<*>).size
         )
     }
 
@@ -183,7 +176,7 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
             }
         }
         // |> Then behaviors from that extent aren't waiting to be added
-        assertEquals(0, (ReflectionHelpers.getField(g, "untrackedBehaviors") as Collection<*>).size)
+        assertEquals(0, (reflectionGetField(g, "untrackedBehaviors") as Collection<*>).size)
     }
 
     @Test

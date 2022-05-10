@@ -44,15 +44,15 @@ class LoginActivityBG : AppCompatActivity() {
         }
 
         usernameEditText.afterTextChanged {
-            loginExtent.email.updateWithAction(it, true)
+            loginExtent.email.updateWithAction(it)
         }
 
         passwordEditText.afterTextChanged {
-            loginExtent.password.updateWithAction(it, true)
+            loginExtent.password.updateWithAction(it)
         }
 
         loginButton.setOnClickListener() {
-            loginExtent.loginClick.updateWithAction(Unit)
+            loginExtent.loginClick.updateWithAction()
         }
 
         loginSucceededButton.setOnClickListener() {

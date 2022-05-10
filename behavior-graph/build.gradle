@@ -1,3 +1,8 @@
+// https://docs.gradle.org/current/samples/sample_building_kotlin_libraries.html
+// https://github.com/Kotlin/dokka/blob/master/examples/gradle/dokka-library-publishing-example/build.gradle.kts
+// https://docs.gradle.org/current/userguide/signing_plugin.html
+// https://www.gnupg.org/gph/en/manual.html
+
 plugins {
     id "org.jetbrains.kotlin.jvm"
     id "maven-publish"
@@ -6,25 +11,57 @@ plugins {
     id "org.jetbrains.dokka"
 }
 
+java {
+    withSourcesJar()
+}
+
+def dokkaJavadocJar = tasks.register("dokkaJavadocJar", org.gradle.jvm.tasks.Jar) {
+    it.dependsOn(dokkaJavadoc)
+    it.from(dokkaJavadoc.outputDirectory)
+    it.archiveClassifier = "javadoc"
+
+}
 
 publishing {
     publications {
         release(MavenPublication) {
             from components.java
-            groupId = 'com.yahoo'
-            artifactId = 'behavior-graph'
-            version = '0.5.0'
+            groupId = 'com.yahoo.behavior-graph'
+            artifactId = 'bgkotlin'
+            version = '0.5.0-RC1'
+            artifact dokkaJavadocJar
+            pom {
+                name = 'Behavior Graph'
+                description = 'Behavior Graph lets you build your programs out of small, easily understood pieces in a way that lets the computer do more of the work for you.'
+                url = 'https://github.com/yahoo/bgkotlin'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'slevin'
+                        name = 'Sean Levin'
+                        email = 'slevin@yahooinc.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/yahoo/bgkotlin.git'
+                    developerConnection = 'scm:git:ssh://github.com:yahoo/bgkotlin.git'
+                    url = 'https://github.com/yahoo/bgkotlin'
+                }
+            }
         }
     }
 }
 
-java {
-    withSourcesJar()
-    withJavadocJar()
+signing {
+    sign configurations.archives
+    sign publishing.publications.release
 }
 
-kotlin {
-}
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"

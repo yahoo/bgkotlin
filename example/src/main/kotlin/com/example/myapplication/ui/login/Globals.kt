@@ -4,11 +4,9 @@
 package com.example.myapplication.ui.login
 
 import com.yahoo.behaviorgraph.Graph
-import com.yahoo.behaviorgraph.platform.PlatformSupport
 
 object Globals {
     init {
-        PlatformSupport.platformSupport = AndroidPlatformSupport()
     }
 
     var graph = Graph()

@@ -7,90 +7,100 @@ import android.text.TextUtils
 import android.util.Patterns
 import com.yahoo.behaviorgraph.Extent
 import com.yahoo.behaviorgraph.Graph
-import com.yahoo.behaviorgraph.Moment
-import com.yahoo.behaviorgraph.State
+import com.yahoo.behaviorgraph.behavior
+import com.yahoo.behaviorgraph.sideEffect
 
-class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent<LoginExtent>(graph) {
-    val email = State(this, "")
-    val password = State(this, "")
-    val emailValid = State(this, false)
-    val passwordValid = State(this, false)
-    val loginEnabled = State(this, false)
-    val loggingIn = State(this, false)
-    val loginClick = Moment<Unit>(this)
-    val loginComplete = Moment<Boolean>(this)
+class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent(graph) {
+    val email = this.state("")
+    val password = this.state("")
+    val emailValid = this.state(false)
+    val passwordValid = this.state(false)
+    val loginEnabled = this.state(false)
+    val loggingIn = this.state(false)
+    val loginClick = this.moment()
+    val loginComplete = this.typedMoment<Boolean>()
 
     private fun validateEmail(target: CharSequence?): Boolean {
         return !TextUtils.isEmpty(target) && Patterns.EMAIL_ADDRESS.matcher(target).matches()
     }
 
     init {
-        makeBehavior(listOf(email), listOf(emailValid)) { extent ->
-            val email = extent.email.value
-            val emailValid: Boolean = validateEmail(email)
-            extent.emailValid.update(emailValid, true)
-            extent.sideEffect(null) { extent ->
-                extent.loginActivityBG.emailFeedbackTextView.text =
-                    if (extent.emailValid.value) {
-                        "✅"
-                    } else {
-                        "❌"
-                    }
-            }
-        }
-
-        makeBehavior(listOf(password), listOf(passwordValid)) { extent ->
-            val password = extent.password.value
-            val passwordValid = password.isNotEmpty()
-            extent.passwordValid.update(passwordValid, true)
-            extent.sideEffect("passwordFeedback") {
-                extent.loginActivityBG.passwordFeedbackTextView.text =
-                    if (extent.passwordValid.value) {
-                        "✅"
-                    } else {
-                        "❌"
-                    }
-
-            }
-        }
-
-        makeBehavior(listOf(emailValid, passwordValid, loggingIn), listOf(loginEnabled)) { extent ->
-            val enabled =
-                extent.emailValid.value && extent.passwordValid.value && !extent.loggingIn.value
-            extent.loginEnabled.update(enabled, true)
-            extent.sideEffect("enable login button") { extent ->
-                loginActivityBG.loginButton.isEnabled = extent.loginEnabled.value
-            }
-        }
-
-        makeBehavior(listOf(loginClick, loginComplete), listOf(loggingIn)) { extent ->
-            if (extent.loginClick.justUpdated && extent.loginEnabled.traceValue) {
-                extent.loggingIn.update(true, true)
-            } else if (extent.loginComplete.justUpdated && extent.loggingIn.value) {
-                extent.loggingIn.update(false, true)
-            }
-
-            if (extent.loggingIn.justUpdatedTo(true)) {
-                extent.sideEffect("login api call") { extent ->
+        behavior()
+            .supplies(emailValid)
+            .demands(email, didAdd)
+            .runs {
+                emailValid.update(validateEmail(email.value))
+                sideEffect(null) { extent ->
+                    extent.loginActivityBG.emailFeedbackTextView.text =
+                        if (extent.emailValid.value) {
+                            "✅"
+                        } else {
+                            "❌"
+                        }
                 }
             }
-        }
 
-        makeBehavior(listOf(loggingIn, loginComplete), null) { extent ->
-            extent.sideEffect("login status") { extent ->
-                var status = ""
-                if (extent.loggingIn.value) {
-                    status = "Logging in...";
-                } else if (extent.loggingIn.justUpdatedTo(false)) {
-                    if (extent.loginComplete.justUpdated && extent.loginComplete.value) {
-                        status = "Login Success";
-                    } else if (extent.loginComplete.justUpdated && !extent.loginComplete.value) {
-                        status = "Login Failed";
+        behavior()
+            .supplies(passwordValid)
+            .demands(password, didAdd)
+            .runs {
+                passwordValid.update(password.value.isNotEmpty())
+                sideEffect("passwordFeedback") {
+                    loginActivityBG.passwordFeedbackTextView.text =
+                        if (passwordValid.value) {
+                            "✅"
+                        } else {
+                            "❌"
+                        }
+
+                }
+            }
+
+        behavior()
+            .supplies(loginEnabled)
+            .demands(emailValid, passwordValid, loggingIn, didAdd)
+            .runs {
+                val enabled =
+                    emailValid.value && passwordValid.value && !loggingIn.value
+                loginEnabled.update(enabled)
+                sideEffect("enable login button") { extent ->
+                    loginActivityBG.loginButton.isEnabled = extent.loginEnabled.value
+                }
+            }
+
+        behavior()
+            .supplies(loggingIn)
+            .demands(loginClick, loginComplete)
+            .runs {
+                if (loginClick.justUpdated && loginEnabled.traceValue) {
+                    loggingIn.update(true)
+                } else if (loginComplete.justUpdated && loggingIn.value) {
+                    loggingIn.update(false)
+                }
+
+                if (loggingIn.justUpdatedTo(true)) {
+                    sideEffect("login api call") { extent ->
                     }
                 }
-                extent.loginActivityBG.loginStatusTextView.text = status
-
             }
-        }
+
+        behavior()
+            .demands(loggingIn, loginComplete, didAdd)
+            .runs {
+                sideEffect("login status") {
+                    var status = ""
+                    if (loggingIn.value) {
+                        status = "Logging in...";
+                    } else if (loggingIn.justUpdatedTo(false)) {
+                        if (loginComplete.justUpdated && loginComplete.value) {
+                            status = "Login Success";
+                        } else if (loginComplete.justUpdated && !loginComplete.value) {
+                            status = "Login Failed";
+                        }
+                    }
+                    loginActivityBG.loginStatusTextView.text = status
+
+                }
+            }
     }
 }

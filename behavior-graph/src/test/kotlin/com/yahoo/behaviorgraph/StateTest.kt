@@ -3,13 +3,7 @@
 //
 package com.yahoo.behaviorgraph
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
-import org.robolectric.util.ReflectionHelpers
+import kotlin.test.*
 
 class StateTest : AbstractBehaviorGraphTest() {
     @Test
@@ -55,7 +49,6 @@ class StateTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction();
 
         // |> When updated with same value and filtering off
-        val entered = sr1.event;
         g.action {
             sr1.updateForce(1);
         }
@@ -224,7 +217,7 @@ class StateTest : AbstractBehaviorGraphTest() {
         mr1.updateWithAction()
 
         // |> Then the start state is no longer available after the event
-        assertNull(ReflectionHelpers.getField(sr1, "priorStateDuringEvent"))
+        assertNull(reflectionGetField(sr1, "priorStateDuringEvent"))
     }
 
     @Test

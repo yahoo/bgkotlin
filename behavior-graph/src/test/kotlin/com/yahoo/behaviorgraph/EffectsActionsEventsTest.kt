@@ -3,9 +3,7 @@
 //
 package com.yahoo.behaviorgraph
 
-import com.yahoo.behaviorgraph.platform.PlatformSupport
-import org.junit.Assert.*
-import org.junit.Test
+import kotlin.test.*
 
 class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
@@ -198,13 +196,8 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `PlatformSupport gives an alternate time`() {
-        val tp = object : PlatformSupport {
-
-            override fun isMainThread(): Boolean {
-                TODO("Not yet implemented")
-            }
-
-            override fun getCurrentTimeMillis(): Long {
+        val tp = object : DateProvider {
+            override fun now(): Long {
                 return 99
             }
         }

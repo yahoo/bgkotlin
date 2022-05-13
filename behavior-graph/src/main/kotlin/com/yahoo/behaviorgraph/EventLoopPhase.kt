@@ -1,8 +1,8 @@
 package com.yahoo.behaviorgraph
 
-enum class EventLoopPhase {
-    queued,
-    action,
-    updates,
-    sideEffects
+internal enum class EventLoopPhase {
+    Queued,
+    Action,
+    Updates,
+    SideEffects
 }

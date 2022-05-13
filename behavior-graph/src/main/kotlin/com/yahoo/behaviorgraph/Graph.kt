@@ -7,63 +7,126 @@ import com.yahoo.behaviorgraph.Event.Companion.InitialEvent
 import com.yahoo.behaviorgraph.exception.AllDemandsMustBeAddedToTheGraphExceptions
 import com.yahoo.behaviorgraph.exception.BehaviorDependencyCycleDetectedException
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
-import com.yahoo.behaviorgraph.exception.ExtentsCanOnlyBeAddedDuringAnEventException
-import com.yahoo.behaviorgraph.exception.ExtentsCanOnlyBeRemovedDuringAnEventException
 import com.yahoo.behaviorgraph.exception.ResourceCannotBeSuppliedByMoreThanOneBehaviorException
-import com.yahoo.behaviorgraph.platform.PlatformSupport
+import java.lang.System.currentTimeMillis
 import java.util.ArrayDeque
-import java.util.ArrayList
 import java.util.PriorityQueue
 import kotlin.math.max
 
-class Graph constructor(private var platformSupport: PlatformSupport = PlatformSupport.platformSupport) {
+
+/**
+ * The core construct that represents the graph of behavior and resource nodes.
+ * As many graphs can exist in the same program as you like; however nodes in one graph cannot directly link to nodes in another graph.
+ * @param dateProvider Let's us offer an alternate source of timestamps for an [Event] typically used in testing.
+ */
+class Graph constructor(private val dateProvider: DateProvider? = null) {
+    /**
+     * The current event if one is currently running.
+     */
     var currentEvent: Event? = null
         private set
+    /**
+     * The last completed event (ie all behaviors and side effects have run)
+     */
     var lastEvent: Event
         private set
     private var activatedBehaviors: PriorityQueue<Behavior>
+
+    /**
+     * The current running behavior if one is running.
+     */
     var currentBehavior: Behavior? = null
         private set
-    private var effects: ArrayDeque<RunnableSideEffect>
-    private var actions: ArrayDeque<RunnableAction>
-    private var untrackedBehaviors: MutableList<Behavior>
-    private var modifiedDemandBehaviors: MutableList<Behavior>
-    private var modifiedSupplyBehaviors: MutableList<Behavior>
-    private var updatedTransients: MutableList<Transient>
-    private var needsOrdering: MutableList<Behavior>
+    private var effects: ArrayDeque<RunnableSideEffect> = ArrayDeque()
+    private var actions: ArrayDeque<RunnableAction> = ArrayDeque()
+    private var untrackedBehaviors: MutableList<Behavior> = mutableListOf()
+    private var modifiedDemandBehaviors: MutableList<Behavior> = mutableListOf()
+    private var modifiedSupplyBehaviors: MutableList<Behavior> = mutableListOf()
+    private var updatedTransients: MutableList<Transient> = mutableListOf()
+    private var needsOrdering: MutableList<Behavior> = mutableListOf()
     private var eventLoopState: EventLoopState? = null
     private var extentsAdded: MutableList<Extent> = mutableListOf()
     private var extentsRemoved: MutableList<Extent> = mutableListOf()
-    var validateDependencies: Boolean = true
-    var validateLifetimes: Boolean = true
-    val actionUpdates: List<Resource>? get() = eventLoopState?.actionUpdates
-    val currentAction: RunnableAction? get() = eventLoopState?.action
-    val currentSideEffect: RunnableSideEffect? get() = eventLoopState?.currentSideEffect
 
-        init {
-        effects = ArrayDeque()
-        actions = ArrayDeque()
+    /**
+     * Validating dependencies between nodes in the graph can take some additional time.
+     * This should be set to true to help you prevent errors while developing.
+     * Set this to false if you wish to squeeze additional performance out of your production application.
+     */
+    var validateDependencies: Boolean = true
+
+    /**
+     * Validating behaviors are linked via resources that are still around can take some additional time.
+     * This should be set to true to help you prevent errors while developing.
+     * Set this to false if you wish to squeeze additional performance out of your production application.
+     */
+    var validateLifetimes: Boolean = true
+
+    /**
+     * The current action may update one or more resources. Inspecting this list lets us
+     * identify which action initiated the current event.
+     */
+    val actionUpdates: List<Resource>?  get() = eventLoopState?.actionUpdates
+
+    /**
+     * The action belonging to the current event if one is running.
+     */
+    val currentAction: Action? get() = eventLoopState?.action
+
+    /**
+     * The current side effect if one is running.
+     */
+    val currentSideEffect: SideEffect? get() = eventLoopState?.currentSideEffect
+
+    init {
         activatedBehaviors = PriorityQueue()
-        untrackedBehaviors = ArrayList()
-        modifiedDemandBehaviors = ArrayList()
-        modifiedSupplyBehaviors = ArrayList()
-        updatedTransients = ArrayList()
-        needsOrdering = ArrayList()
         lastEvent = InitialEvent
     }
 
+    /**
+     * Creates a new action but will not necessarily block until the passed in function is run.
+     * This is useful when coordinating side effects that lead to new actions.
+     *
+     * Example:
+     * ```kotlin
+     * graph.actionAsync { resource1.update() }
+     * afterFunction()
+     * ```
+     *
+     * - If the graph is currently running an event and we call `actionAsync` like above, the internal
+     * block of code will be put on an internal queue and `afterFunction()` will get called next.
+     * - If the graph is __not__ running an event and we call `actionAsync`, `resource`.update()` will
+     * get called, the entire graph will update and `afterFunction()` will finally run.
+     *
+     * @param debugName let's us add additional context to an action for debugging
+     */
     fun actionAsync(debugName: String? = null, block: () -> Unit) {
-        val action = Action(block, debugName)
-        asyncActionHelper(action)
+        val graphAction = GraphAction(block, debugName)
+        asyncActionHelper(graphAction)
     }
 
+    /**
+     * Creates a new action. It will always run the passed in function and subsequent graph event
+     * before continuing to the next line.
+     *
+     * Example:
+     * ```kotlin
+     * graph.actionAsync { resource1.update() }
+     * afterFunction()
+     * ```
+     *
+     * In the above example `resource1.update()` and associated event will always run before `afterFunction()`
+     * is called.
+     *
+     * @param debugName let's us add additional context to an action for debugging
+     */
     fun action(debugName: String? = null, block: () -> Unit) {
-        val action = Action(block, debugName)
-        actionHelper(action)
+        val graphAction = GraphAction(block, debugName)
+        actionHelper(graphAction)
     }
 
     internal fun actionHelper(action: RunnableAction) {
-        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.action || eventLoopState!!.phase == EventLoopPhase.updates)) {
+        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.Action || eventLoopState!!.phase == EventLoopPhase.Updates)) {
             throw BehaviorGraphException("Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block.")
         }
         actions.addLast(action)
@@ -71,7 +134,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     }
 
     internal fun asyncActionHelper(action: RunnableAction) {
-        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.action || eventLoopState!!.phase == EventLoopPhase.updates)) {
+        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.Action || eventLoopState!!.phase == EventLoopPhase.Updates)) {
             throw BehaviorGraphException("Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block.")
         }
         actions.addLast(action)
@@ -89,9 +152,9 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                     modifiedSupplyBehaviors.size > 0 ||
                     needsOrdering.size > 0
                 ) {
-                    eventLoopState!!.phase = EventLoopPhase.updates
+                    eventLoopState!!.phase = EventLoopPhase.Updates
                     val sequence = this.currentEvent!!.sequence
-                    addUntrackedBehaviors(sequence)
+                    addUntrackedBehaviors()
                     addUntrackedSupplies()
                     addUntrackedDemands(sequence)
                     orderBehaviors()
@@ -112,7 +175,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                 }
                 if (effects.isNotEmpty()) {
                     val effect = this.effects.removeFirst()
-                    eventLoopState!!.phase = EventLoopPhase.sideEffects
+                    eventLoopState!!.phase = EventLoopPhase.SideEffects
                     eventLoopState!!.currentSideEffect = effect
                     effect.runSideEffect()
                     if (eventLoopState != null) {
@@ -134,12 +197,11 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                 if (actions.isNotEmpty()) {
                     val action = actions.removeFirst()
                     val newEvent = Event(
-                        this.lastEvent.sequence + 1,
-                        platformSupport.getCurrentTimeMillis()
+                        this.lastEvent.sequence + 1, dateProvider?.now() ?: currentTimeMillis()
                     )
                     this.currentEvent = newEvent
                     eventLoopState = EventLoopState(action)
-                    eventLoopState!!.phase = EventLoopPhase.action
+                    eventLoopState!!.phase = EventLoopPhase.Action
                     action.runAction()
                     continue
                 }
@@ -225,7 +287,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
 
     internal fun resourceTouched(resource: Resource) {
         this.currentEvent?.let { aCurrentEvent ->
-            if (eventLoopState != null && eventLoopState!!.phase == EventLoopPhase.action) {
+            if (eventLoopState != null && eventLoopState!!.phase == EventLoopPhase.Action) {
                 eventLoopState!!.actionUpdates.add(resource)
             }
             for (subsequent in resource.subsequents) {
@@ -257,14 +319,18 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         }
     }
 
+    /**
+     * Creates a [SideEffect] and adds it to the queue.
+     * All side effects in the queue will be run in order at the end of the current event.
+     */
     fun sideEffect(debugName: String? = null, block: () -> Unit) {
-        sideEffectHelper(SideEffect(block, currentBehavior, debugName))
+        sideEffectHelper(GraphSideEffect(block, currentBehavior, debugName))
     }
 
     internal fun sideEffectHelper(sideEffect: RunnableSideEffect) {
         if (this.currentEvent == null) {
             throw BehaviorGraphException("Effects can only be added during an event loop.")
-        } else if (eventLoopState!!.phase == EventLoopPhase.sideEffects) {
+        } else if (eventLoopState!!.phase == EventLoopPhase.SideEffects) {
             throw BehaviorGraphException("Nested side effects are disallowed.")
         } else {
             this.effects.addLast(sideEffect)
@@ -272,7 +338,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
 
     }
 
-    private fun addUntrackedBehaviors(sequence: Long) {
+    private fun addUntrackedBehaviors() {
         for (behavior in untrackedBehaviors) {
             modifiedDemandBehaviors.add(behavior)
             modifiedSupplyBehaviors.add(behavior)
@@ -282,44 +348,42 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
 
     private fun addUntrackedSupplies() {
         modifiedSupplyBehaviors.forEach { behavior ->
-            behavior.untrackedSupplies?.let { behaviorUntrackedSupplies ->
-                if (validateLifetimes) {
-                    behavior.untrackedSupplies?.forEach { existingSupply ->
-                        if (!behavior.extent.hasCompatibleLifetime(existingSupply.extent)) {
-                            throw BehaviorGraphException("Static supplies can only be with extents with the unified or parent lifetimes. Supply=$existingSupply")
-                        }
+            if (validateLifetimes) {
+                behavior.untrackedSupplies?.forEach { existingSupply ->
+                    if (!behavior.extent.hasCompatibleLifetime(existingSupply.extent)) {
+                        throw BehaviorGraphException("Static supplies can only be with extents with the unified or parent lifetimes. Supply=$existingSupply")
                     }
                 }
+            }
 
-                val allUntrackedSupplies: MutableSet<Resource> = mutableSetOf()
-                if (behavior.untrackedSupplies != null) {
-                    allUntrackedSupplies.addAll(behavior.untrackedSupplies!!)
-                }
-                if (behavior.untrackedDynamicSupplies != null) {
-                    allUntrackedSupplies.addAll(behavior.untrackedDynamicSupplies!!)
-                }
+            val allUntrackedSupplies: MutableSet<Resource> = mutableSetOf()
+            if (behavior.untrackedSupplies != null) {
+                allUntrackedSupplies.addAll(behavior.untrackedSupplies!!)
+            }
+            if (behavior.untrackedDynamicSupplies != null) {
+                allUntrackedSupplies.addAll(behavior.untrackedDynamicSupplies!!)
+            }
 
-                behavior.supplies?.forEach { it.suppliedBy = null }
+            behavior.supplies?.forEach { it.suppliedBy = null }
 
-                behavior.supplies = allUntrackedSupplies
-                behavior.supplies?.forEach { newSupply: Resource ->
-                    if (newSupply.suppliedBy != null && newSupply.suppliedBy !== behavior) {
-                        throw ResourceCannotBeSuppliedByMoreThanOneBehaviorException(
-                            "Resource cannot be supplied by more than one behavior",
-                            newSupply,
-                            behavior
-                        )
-                    }
-                    newSupply.suppliedBy = behavior
+            behavior.supplies = allUntrackedSupplies
+            behavior.supplies?.forEach { newSupply: Resource ->
+                if (newSupply.suppliedBy != null && newSupply.suppliedBy !== behavior) {
+                    throw ResourceCannotBeSuppliedByMoreThanOneBehaviorException(
+                        "Resource cannot be supplied by more than one behavior",
+                        newSupply,
+                        behavior
+                    )
                 }
+                newSupply.suppliedBy = behavior
+            }
 
-                // technically this doesn't need reordering but its subsequents will
-                // setting this to reorder will also adjust its subsequents if necessary
-                // in the sortDFS code
-                if (behavior.orderingState != OrderingState.NeedsOrdering) {
-                    behavior.orderingState = OrderingState.NeedsOrdering
-                    this.needsOrdering.add(behavior)
-                }
+            // technically this doesn't need reordering but its subsequents will
+            // setting this to reorder will also adjust its subsequents if necessary
+            // in the sortDFS code
+            if (behavior.orderingState != OrderingState.NeedsOrdering) {
+                behavior.orderingState = OrderingState.NeedsOrdering
+                this.needsOrdering.add(behavior)
             }
         }
         this.modifiedSupplyBehaviors.clear()
@@ -365,7 +429,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                 }
                 if (behavior.demands == null || !behavior.demands!!.contains(untrackedDemand)) {
                     if (addedDemands == null) {
-                        addedDemands = ArrayList()
+                        addedDemands = mutableListOf()
                     }
                     addedDemands.add(untrackedDemand)
                 }
@@ -395,7 +459,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
                     newDemands = mutableSetOf()
                 }
                 newDemands!!.add(link.resource)
-                if (link.type == LinkType.order) {
+                if (link.type == LinkType.Order) {
                     if (orderingDemands == null) {
                         orderingDemands = mutableSetOf()
                     }
@@ -426,7 +490,7 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
         if (needsOrdering.isEmpty()) {
             return
         }
-        val localNeedsOrdering = ArrayList<Behavior>()
+        val localNeedsOrdering = mutableListOf<Behavior>()
 
         var x = 0
         while (x < needsOrdering.size) {
@@ -493,16 +557,16 @@ class Graph constructor(private var platformSupport: PlatformSupport = PlatformS
     }
 
     private fun debugCycleForBehavior(behavior: Behavior): List<Resource> {
-        val stack = ArrayList<Resource>() //we'll "push" and "pop" from the end
+        val stack = mutableListOf<Resource>() //we'll "push" and "pop" from the end
         if (cycleDFS(behavior, behavior, stack)) {
-            var output = ArrayList<Resource>()
+            var output = mutableListOf<Resource>()
             while (stack.isNotEmpty()) {
                 var rez = stack.removeAt(stack.size - 1)
                 output.add(rez)
             }
             return output
         } else {
-            return ArrayList()
+            return mutableListOf()
         }
     }
 

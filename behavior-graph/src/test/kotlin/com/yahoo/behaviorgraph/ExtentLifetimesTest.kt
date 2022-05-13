@@ -1,8 +1,6 @@
 package com.yahoo.behaviorgraph
 
-import org.junit.Assert
-import org.junit.Assert.*
-import org.junit.Test
+import kotlin.test.*
 
 class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
@@ -151,7 +149,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> Then we remove one with flag for removing contained lifetimes
         g.action {
-            ext1.removeFromGraph(ExtentRemoveStrategy.containedLifetimes)
+            ext1.removeFromGraph(ExtentRemoveStrategy.ContainedLifetimes)
         }
 
         // |> Then unified are also removed
@@ -278,7 +276,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         }
         // |> When parent is removed with containedLifetime strategy
         // |> Then children (and their unified) are removed
-        ext1.removeFromGraphWithAction(ExtentRemoveStrategy.containedLifetimes)
+        ext1.removeFromGraphWithAction(ExtentRemoveStrategy.ContainedLifetimes)
         assertNull(ext2.addedToGraphWhen)
         assertNull(ext3.addedToGraphWhen)
     }
@@ -420,7 +418,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         }
 
         // |> When we remove parent with containedLifetimes strategy
-        ext1.removeFromGraphWithAction(ExtentRemoveStrategy.containedLifetimes)
+        ext1.removeFromGraphWithAction(ExtentRemoveStrategy.ContainedLifetimes)
 
         // |> Then children and unified are recursively removed
         assertNull(ext3.addedToGraphWhen)

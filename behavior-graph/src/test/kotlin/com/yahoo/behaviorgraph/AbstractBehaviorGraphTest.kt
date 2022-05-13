@@ -4,9 +4,8 @@
 package com.yahoo.behaviorgraph
 
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
-import com.yahoo.behaviorgraph.platform.PlatformSupport
-import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
+import java.lang.reflect.Field
+import kotlin.test.*
 import kotlin.reflect.KClass
 
 abstract class AbstractBehaviorGraphTest
@@ -50,13 +49,17 @@ abstract class AbstractBehaviorGraphTest
         } catch (e: Exception) {
             fail("Unexpected exception")
         }
-        assertTrue("Did not throw", true)
+        assertTrue(true, "Did not throw")
+    }
+
+    protected fun reflectionGetField(obj: Any, name: String): Any? {
+        val field: Field = obj.javaClass.getDeclaredField(name)
+        field.trySetAccessible()
+        return field.get(obj)
     }
 
     @org.junit.Before
     open fun setUp() {
-        setupPlatformSupport()
-
         g = Graph()
         setupExt = TestExtent(g)
         ext = Extent(g)
@@ -66,18 +69,4 @@ abstract class AbstractBehaviorGraphTest
         setupExt.addToGraphWithAction()
         setupExt.addChildLifetime(ext)
     }
-
-    open fun setupPlatformSupport() {
-        PlatformSupport.platformSupport = object: PlatformSupport {
-            override fun getCurrentTimeMillis(): Long {
-                return System.currentTimeMillis()
-            }
-
-            override fun isMainThread(): Boolean {
-                return true;
-            }
-
-        }
-    }
-
 }

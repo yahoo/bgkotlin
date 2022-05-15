@@ -18,14 +18,14 @@ internal interface RunnableAction: Action {
     fun runAction()
 }
 
-internal class GraphAction(val block: () -> Unit, override val debugName: String? = null): RunnableAction {
+internal class GraphAction(val thunk: Thunk, override val debugName: String? = null): RunnableAction {
     override fun runAction() {
-        block()
+        thunk.invoke()
     }
 }
 
-internal class ExtentAction(val block: (extent: Extent) -> Unit, val extent: Extent, override val debugName: String? = null): RunnableAction {
+internal class ExtentAction<T>(val thunk: ExtentThunk<T>, val extent: T, override val debugName: String? = null): RunnableAction {
     override fun runAction() {
-        block(extent)
+        thunk.invoke(extent)
     }
 }

@@ -12,6 +12,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.R
 
+
 class LoginActivityBG : AppCompatActivity() {
     lateinit var usernameEditText: EditText
     lateinit var passwordEditText: EditText
@@ -38,7 +39,7 @@ class LoginActivityBG : AppCompatActivity() {
         loginFailedButton = findViewById(R.id.loginFailedButton)
 
         loginExtent = LoginExtent(this, Globals.graph)
-
+        loginExtent
         Globals.graph.action("init") {
             loginExtent.addToGraph()
         }

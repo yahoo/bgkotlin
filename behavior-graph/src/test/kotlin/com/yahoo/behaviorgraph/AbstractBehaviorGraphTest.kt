@@ -10,11 +10,11 @@ import kotlin.reflect.KClass
 
 abstract class AbstractBehaviorGraphTest
 {
-    class TestExtent(g: Graph) : Extent(g)
+    open class TestExtent(g: Graph) : Extent<TestExtent>(g)
 
     lateinit var g: Graph
     protected lateinit var setupExt: TestExtent
-    lateinit var ext: Extent
+    lateinit var ext: TestExtent
     lateinit var r_a: State<Long>
     lateinit var r_b: State<Long>
     lateinit var r_c: State<Long>
@@ -62,7 +62,7 @@ abstract class AbstractBehaviorGraphTest
     open fun setUp() {
         g = Graph()
         setupExt = TestExtent(g)
-        ext = Extent(g)
+        ext = TestExtent(g)
         r_a = setupExt.state(0, "r_a")
         r_b = setupExt.state( 0, "r_b")
         r_c = setupExt.state(0, "r_c")

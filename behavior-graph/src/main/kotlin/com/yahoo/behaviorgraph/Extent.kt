@@ -13,10 +13,13 @@ import com.yahoo.behaviorgraph.exception.BehaviorGraphException
  *
  * You typically subclass (or delegate to) an Extent in order to define your
  * set of resources and behaviors for your program.
+ * _Note that Extent has a type parameter._ This should be the type of the subclass.
+ * This type parameterization provides a better Behavior Graph API.
+ * This pattern is known as the [Curiously Recurring Template Pattern (CRTP)](https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern)
  *
  * Example:
  * ```kotlin
- * class MyExtent(val graph: Graph): Extent(graph) {
+ * class MyExtent(val graph: Graph): Extent<MyExtent>(graph) {
  *   val moment1: Moment = this.moment()
  *   val state1: State<Long> = this.state(0)
  *
@@ -36,7 +39,7 @@ import com.yahoo.behaviorgraph.exception.BehaviorGraphException
  * ```
  *
  */
-open class Extent(val graph: Graph) {
+abstract class Extent<ExtentSubType: Extent<ExtentSubType>>(val graph: Graph) {
     var debugName: String = javaClass.simpleName
     internal var behaviors: MutableList<Behavior> = mutableListOf()
     internal var resources: MutableList<Resource> = mutableListOf()
@@ -53,7 +56,7 @@ open class Extent(val graph: Graph) {
     /**
      * Establish that the receiver will be around for the same period of time as the passed in extent.
      */
-    fun unifyLifetime(extent: Extent) {
+    fun unifyLifetime(extent: Extent<*>) {
         if (lifetime == null) {
             lifetime = ExtentLifetime(this)
         }
@@ -63,14 +66,14 @@ open class Extent(val graph: Graph) {
     /**
      * Establish that the receiver will be around for at least as long as the passed in child extent.
      */
-    fun addChildLifetime(extent: Extent) {
+    fun addChildLifetime(extent: Extent<*>) {
         if (this.lifetime == null) {
             lifetime = ExtentLifetime(this)
         }
         lifetime!!.addChild(extent)
     }
 
-    internal fun hasCompatibleLifetime(extent: Extent): Boolean {
+    internal fun hasCompatibleLifetime(extent: Extent<*>): Boolean {
         if (this == extent) {
             return true
         } else if (lifetime != null) {
@@ -91,6 +94,7 @@ open class Extent(val graph: Graph) {
     /**
      * Creates an Action on the graph and calls [addToGraph]
      */
+    @JvmOverloads
     fun addToGraphWithAction(debugName: String? = null) {
         this.graph.action(debugName, {
             this.addToGraph()
@@ -112,6 +116,7 @@ open class Extent(val graph: Graph) {
     /**
      * Creates an Action on the graph and calls [removeFromGraph]
      */
+    @JvmOverloads
     fun removeFromGraphWithAction(strategy: ExtentRemoveStrategy = ExtentRemoveStrategy.ExtentOnly, debugName: String? = null) {
         this.graph.action(debugName, { this.removeFromGraph(strategy) })
     }
@@ -121,6 +126,7 @@ open class Extent(val graph: Graph) {
      * @param strategy Optional parameter to automatically remove all extents with the same or shorter lifetimes
      * as established by [addChildLifetime] and [unifyLifetime].
      */
+    @JvmOverloads
     fun removeFromGraph(strategy: ExtentRemoveStrategy = ExtentRemoveStrategy.ExtentOnly) {
         if (graph.currentEvent != null) {
             if (addedToGraphWhen != null) {
@@ -154,6 +160,7 @@ open class Extent(val graph: Graph) {
     /**
      * Create a [Resource] instance associated with this [Extent]
      */
+    @JvmOverloads
     fun resource(debugName: String? = null): Resource {
         return Resource(this, debugName)
     }
@@ -161,6 +168,7 @@ open class Extent(val graph: Graph) {
     /**
      * Create a [TypedMoment] instance associated with this [Extent]
      */
+    @JvmOverloads
     fun <T> typedMoment(debugName: String? = null): TypedMoment<T> {
         return TypedMoment<T>(this, debugName)
     }
@@ -168,6 +176,7 @@ open class Extent(val graph: Graph) {
     /**
      * Creates a [Moment] instance associated with this [Extent]
      */
+    @JvmOverloads
     fun moment(debugName: String? = null): Moment {
         return Moment(this, debugName)
     }
@@ -175,38 +184,42 @@ open class Extent(val graph: Graph) {
     /**
      * Creates a [State] instance associated with this [Extent].
      */
+    @JvmOverloads
     fun <T> state(initialState: T, debugName: String? = null): State<T> {
         return State<T>(this, initialState, debugName)
     }
-}
 
-/**
- * Creates a [BehaviorBuilder] to create a [Behavior] associated with this [Extent]
- */
-fun <T: Extent> T.behavior(): BehaviorBuilder<T> {
-    return BehaviorBuilder(this)
-}
+    /**
+     * Creates a [BehaviorBuilder] to create a [Behavior] associated with this [Extent]
+     */
+    fun behavior(): BehaviorBuilder<ExtentSubType> {
+        return BehaviorBuilder(this)
+    }
 
-/**
- * Calls [Graph.sideEffect] on the Graph instance associated with this [Extent].
- */
-fun <T: Extent> T.sideEffect(debugName: String? = null, block: (ext: T) -> Unit) {
-    val sideEffect = ExtentSideEffect(block as (Extent) -> Unit, this, this.graph.currentBehavior, debugName)
-    graph.sideEffectHelper(sideEffect)
-}
+    /**
+     * Calls [Graph.sideEffect] on the Graph instance associated with this [Extent].
+     */
+    @JvmOverloads
+    fun sideEffect(debugName: String? = null, thunk: ExtentThunk<ExtentSubType>) {
+        val sideEffect = ExtentSideEffect(thunk, this as ExtentSubType, this.graph.currentBehavior, debugName)
+        graph.sideEffectHelper(sideEffect)
+    }
 
-/**
- * Calls [Graph.actionAsync] on the Graph instance associated with this [Extent].
- */
-fun <T: Extent> T.actionAsync(debugName: String? = null, block: (ext: T) -> Unit) {
-    val action = ExtentAction(block as (Extent) -> Unit, this, debugName)
-    graph.asyncActionHelper(action)
-}
+    /**
+     * Calls [Graph.actionAsync] on the Graph instance associated with this [Extent].
+     */
+    @JvmOverloads
+    fun actionAsync(debugName: String? = null, thunk: ExtentThunk<ExtentSubType>) {
+        val action = ExtentAction(thunk, this as ExtentSubType, debugName)
+        graph.asyncActionHelper(action)
+    }
 
-/**
- * Calls [Graph.action] on the Graph instance associated with this [Extent].
- */
-fun <T: Extent> T.action(debugName: String? = null, block: (ext: T) -> Unit) {
-    val action = ExtentAction(block as (Extent) -> Unit, this, debugName)
-    graph.actionHelper(action)
+    /**
+     * Calls [Graph.action] on the Graph instance associated with this [Extent].
+     */
+    @JvmOverloads
+    fun action(debugName: String? = null, thunk: ExtentThunk<ExtentSubType>) {
+        val action = ExtentAction(thunk, this as ExtentSubType, debugName)
+        graph.actionHelper(action)
+    }
 }

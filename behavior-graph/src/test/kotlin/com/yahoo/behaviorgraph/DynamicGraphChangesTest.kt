@@ -27,7 +27,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         // given a behavior that adds a extent when something happens
 
         // -- this is behavior that does the work
-        val ext2 = Extent(g)
+        val ext2 = TestExtent(g)
         setupExt.addChildLifetime(ext2)
         ext2.behavior().demands(r_b).supplies(r_c).runs {
             r_c.update(r_b.value + 1)
@@ -112,7 +112,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `removed behaviors are removed from foreign subsequents`() {
         // |> Given we have a behavior which has foreign and local demands
-        val ext2 = Extent(g)
+        val ext2 = TestExtent(g)
         ext.addChildLifetime(ext2)
         val demanded1 = ext.moment("demanded1")
         val demanded2 = ext2.moment("demanded2")
@@ -138,7 +138,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `removed behaviors are removed as foreign suppliers`() {
         // |> Given we have a behavior which supplies both foreign and local resources
-        val ext2 = Extent(g)
+        val ext2 = TestExtent(g)
         ext.addChildLifetime(ext2)
         val supplied1 = ext.moment("supplied1")
         val supplied2 = ext2.moment("supplied2")
@@ -165,7 +165,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         // given a behavior that is added
         val remover = ext.state(null, "y_out")
 
-        val ext2: Extent = Extent(g)
+        val ext2: TestExtent = TestExtent(g)
         ext.addChildLifetime(ext2)
         val didRun: State<Boolean> = ext2.state(false, "didRun")
         ext2.behavior().demands(r_a, remover).supplies(didRun).runs {
@@ -200,7 +200,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
 
         // then a extent is added that supplies it by a behavior, it could just pass along the value
-        val ext2: Extent = Extent(g)
+        val ext2: TestExtent = TestExtent(g)
         ext.addChildLifetime(ext2)
         val r_x: State<Long> = ext2.state(0, "r_x")
         ext2.behavior().demands(r_x).supplies(r_y).runs {
@@ -305,7 +305,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
         // then add another behavior that (will) supply the resource
         // b_a behavior should be reordered to come after b_b
-        val ext2: Extent = Extent(g)
+        val ext2: TestExtent = TestExtent(g)
         ext.addChildLifetime(ext2)
         val b_b = ext2.behavior().demands(r_a).runs {
             r_x.update(r_a.value)
@@ -622,9 +622,9 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `dynamicDemands must be in the graph`() {
         // |> Given an extent with foreign demands that haven't been added
-        val ext1 = Extent(g)
+        val ext1 = TestExtent(g)
         val r1 = ext1.moment()
-        val ext2 = Extent(g)
+        val ext2 = TestExtent(g)
         ext2.behavior().dynamicDemands(ext2.didAdd) { listOf(r1) }.runs {}
         // |> When that extent is added
         // |> Then it should raise an error

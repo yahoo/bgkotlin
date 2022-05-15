@@ -9,7 +9,7 @@ import com.yahoo.behaviorgraph.Event.Companion.InitialEvent
  * A State is a type of resource for storing information over a period of time. Its value will persist into the future until it is updated.
  * All States must be given an initial value when created.
  */
-class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
+class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, debugName: String? = null) :
     Resource(extent, debugName),
     Transient {
     private var currentState = StateHistory(initialState, InitialEvent)
@@ -19,6 +19,7 @@ class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
      * The current underlying value.
      * A behavior must demand this State resource in order to access this property.
      */
+    @get:JvmName("value")
     val value: T
         get() {
             assertValidAccessor()
@@ -29,6 +30,7 @@ class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
      * The last time the State was updated. Will return [Event.InitialEvent] for its initial value before it has been updated.
      * A behavior must demand this State resource in order to access this property.
      */
+    @get:JvmName("event")
     val event: Event
         get() {
             assertValidAccessor()
@@ -42,6 +44,7 @@ class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
      * If this resource has justUpdated it will return the previous value.
      * Otherwise it will return the current value.
      */
+    @get:JvmName("traceValue")
     val traceValue: T
         get() = trace.value
 
@@ -50,6 +53,7 @@ class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
      * If this resource has justUpdated it will return the previous event.
      * Otherwise it will return the current event.
      */
+    @get:JvmName("traceEvent")
     val traceEvent: Event
         get() = trace.event
 
@@ -57,6 +61,7 @@ class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
     /**
      * Create a new action and call [update].
      */
+    @JvmOverloads
     fun updateWithAction(newValue: T, debugName: String? = null) {
         graph.action(debugName, { update(newValue) })
     }
@@ -96,11 +101,14 @@ class State<T>(extent: Extent, initialState: T, debugName: String? = null) :
      * Is there a current event and was this resource updated during this event.
      * A behavior must demand this resource to access this property.
      */
-    override val justUpdated: Boolean
+    @get:JvmName("justUpdated")
+    val justUpdated: Boolean
         get() {
             assertValidAccessor()
             return currentState.event == graph.currentEvent
         }
+
+    override val internalJustUpdated: Boolean get() = justUpdated
 
     /**
      * Checks if [justUpdated] and if the associated value is `==` to the passed in value.

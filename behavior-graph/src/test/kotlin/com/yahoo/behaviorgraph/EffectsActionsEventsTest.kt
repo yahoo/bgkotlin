@@ -11,10 +11,12 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
     fun `happen after all behaviors`() {
         var happened = false
         // behavior a has a side effect and
+
         ext.behavior()
             .supplies(r_b)
             .demands(r_a)
             .runs { extent ->
+
                 extent.sideEffect {
                     happened = true
                 }
@@ -342,7 +344,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
     @Test
     fun `action inside sideEffect has extent`() {
         val m1 = ext.moment()
-        var insideExtent: Extent? = null
+        var insideExtent: TestExtent? = null
         ext.behavior().demands(m1).runs {
             ext.sideEffect {
                 ext.action {

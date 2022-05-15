@@ -13,7 +13,7 @@ import com.yahoo.behaviorgraph.exception.BehaviorGraphException
  * You may wish to use this Resource to enforce ordering between two behaviors without
  * implying any other relationship.
  */
-open class Resource(val extent: Extent, var debugName: String? = null): Demandable {
+open class Resource @JvmOverloads constructor(val extent: Extent<*>, var debugName: String? = null): Demandable {
     val graph: Graph = extent.graph
     internal var subsequents: MutableSet<Behavior> = mutableSetOf()
     var suppliedBy: Behavior? = null
@@ -26,7 +26,10 @@ open class Resource(val extent: Extent, var debugName: String? = null): Demandab
         extent.addResource(this)
     }
 
+    @get:JvmName("order")
     val order: Demandable get() = DemandLink(this, LinkType.Order)
+
+    internal open val internalJustUpdated: Boolean get() = false
 
     internal fun assertValidUpdater() {
         val currentBehavior = graph.currentBehavior
@@ -50,13 +53,5 @@ open class Resource(val extent: Extent, var debugName: String? = null): Demandab
         if (currentBehavior != null && currentBehavior != suppliedBy && !(currentBehavior.demands?.contains(this) ?: false)) {
             throw BehaviorGraphException("Cannot access the value or event of a resource inside a behavior unless it is supplied or demanded.")
         }
-    }
-
-    /**
-     * Always returns false.
-     */
-    open val justUpdated: Boolean get() {
-        assertValidAccessor()
-        return false
     }
 }

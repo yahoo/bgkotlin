@@ -1,5 +1,13 @@
 package com.yahoo.behaviorgraph
 
+fun interface DemandableLinks<T> {
+    fun invoke(ext: T): List<Demandable?>?
+}
+
+fun interface SuppliableLinks<T> {
+    fun invoke(ext: T): List<Resource?>?
+}
+
 /**
  * Provides a fluent API interface for creating a [Behavior].
  * Use the [behavior] method on [Extent] to use.
@@ -14,16 +22,16 @@ package com.yahoo.behaviorgraph
  *   }
  * ```
  */
-class BehaviorBuilder<T: Extent>(
-    internal val extent: T
+class BehaviorBuilder<T : Extent<T>>(
+    internal val extent: Extent<T>
 ) {
     private var untrackedDemands: MutableList<Demandable> = mutableListOf()
     private var untrackedSupplies: MutableList<Resource> = mutableListOf()
-    private var dynamicDemandSwitches: Array<out Demandable>? = null
-    private var dynamicDemandLinks: ((ext: T) -> List<Demandable?>?)? = null
+    private var dynamicDemandSwitches: List<Demandable>? = null
+    private var dynamicDemandLinks: DemandableLinks<T>? = null
     private var dynamicDemandRelinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior
-    private var dynamicSupplySwitches: Array<out Demandable>? = null
-    private var dynamicSupplyLinks: ((ext: T) -> List<Resource?>?)? = null
+    private var dynamicSupplySwitches: List<Demandable>? = null
+    private var dynamicSupplyLinks: SuppliableLinks<T>? = null
     private var dynamicSupplyRelinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior
 
     /**
@@ -51,8 +59,24 @@ class BehaviorBuilder<T: Extent>(
      * @param relinkingOrder Should the dynamic demands be set before or after the behavior is run. If in doubt choose `RelinkingOrderPrior`
      * @param links This anonymous function should return the additional set of demands the behavior will include. The `ext` parameter points to the [Extent] this behaivor is created on.
      */
-    fun dynamicDemands(vararg switches: Demandable, relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior, links: ((ext: T) -> List<Demandable?>?)) = apply {
+    @JvmOverloads
+    fun dynamicDemands(
+        switches: List<Demandable>,
+        relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior,
+        links: DemandableLinks<T>
+    ) = apply {
         dynamicDemandSwitches = switches
+        dynamicDemandLinks = links
+        dynamicDemandRelinkingOrder = relinkingOrder
+    }
+
+    @JvmOverloads
+    fun dynamicDemands(
+        vararg switches: Demandable,
+        relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior,
+        links: DemandableLinks<T>
+    ) = apply {
+        dynamicDemandSwitches = switches.asList()
         dynamicDemandLinks = links
         dynamicDemandRelinkingOrder = relinkingOrder
     }
@@ -71,8 +95,23 @@ class BehaviorBuilder<T: Extent>(
      * @param relinkingOrder Should the dynamic supplies be set before or after the behavior is run. If in doubt choose `RelinkingOrderPrior` (which is the default).
      * @param links This anonymous function should return the additional set of supplies the behavior will include. The `ext` parameter points to the [Extent] this behaivor is created on.
      */
-    fun dynamicSupplies(vararg switches: Demandable, relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior, links: ((ext: T) -> List<Resource?>?)) = apply {
+    @JvmOverloads
+    fun dynamicSupplies(
+        switches: List<Demandable>,
+        relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior,
+        links: SuppliableLinks<T>
+    ) = apply {
         dynamicSupplySwitches = switches
+        dynamicSupplyLinks = links
+        dynamicSupplyRelinkingOrder = relinkingOrder
+    }
+    @JvmOverloads
+    fun dynamicSupplies(
+        vararg switches: Demandable,
+        relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior,
+        links: SuppliableLinks<T>
+    ) = apply {
+        dynamicSupplySwitches = switches.asList()
         dynamicSupplyLinks = links
         dynamicSupplyRelinkingOrder = relinkingOrder
     }
@@ -84,7 +123,7 @@ class BehaviorBuilder<T: Extent>(
      * @return The behavior that was created. Typically the results are discarded unless you need direct access to the
      * behavior later.
      */
-    fun runs(block: (ext: T) -> Unit): Behavior {
+    fun runs(thunk: ExtentThunk<T>): Behavior {
         var dynamicDemandResource: Resource? = null
         if (dynamicDemandSwitches != null) {
             dynamicDemandResource = extent.resource("(BG Dynamic Demand Resource)")
@@ -105,7 +144,7 @@ class BehaviorBuilder<T: Extent>(
             }
         }
 
-        val mainBehavior = Behavior(extent, untrackedDemands, untrackedSupplies, block as (Extent) -> Unit)
+        val mainBehavior = Behavior(extent, untrackedDemands, untrackedSupplies, thunk as ExtentThunk<Extent<*>>)
 
         if (dynamicDemandSwitches != null) {
             var supplies: List<Resource>? = null
@@ -117,7 +156,7 @@ class BehaviorBuilder<T: Extent>(
                 demands.add(dynamicDemandResource!!)
             }
             Behavior(extent, demands, supplies) {
-                val demandLinks = dynamicDemandLinks!!(it as T)
+                val demandLinks = dynamicDemandLinks!!.invoke(it as T)
                 mainBehavior.setDynamicDemands(demandLinks)
             }
         }
@@ -132,7 +171,7 @@ class BehaviorBuilder<T: Extent>(
                 demands.add(dynamicSupplyResource!!)
             }
             Behavior(extent, demands, supplies) {
-                var supplyLinks = dynamicSupplyLinks!!(it as T)
+                var supplyLinks = dynamicSupplyLinks!!.invoke(it as T)
                 mainBehavior.setDynamicSupplies(supplyLinks)
             }
         }

@@ -7,18 +7,16 @@ import android.text.TextUtils
 import android.util.Patterns
 import com.yahoo.behaviorgraph.Extent
 import com.yahoo.behaviorgraph.Graph
-import com.yahoo.behaviorgraph.behavior
-import com.yahoo.behaviorgraph.sideEffect
 
-class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent(graph) {
-    val email = this.state("")
-    val password = this.state("")
-    val emailValid = this.state(false)
-    val passwordValid = this.state(false)
-    val loginEnabled = this.state(false)
-    val loggingIn = this.state(false)
-    val loginClick = this.moment()
-    val loginComplete = this.typedMoment<Boolean>()
+class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent<LoginExtent>(graph) {
+    val email = state("")
+    val password = state("")
+    val emailValid = state(false)
+    val passwordValid = state(false)
+    val loginEnabled = state(false)
+    val loggingIn = state(false)
+    val loginClick = moment()
+    val loginComplete = typedMoment<Boolean>()
 
     private fun validateEmail(target: CharSequence?): Boolean {
         return !TextUtils.isEmpty(target) && Patterns.EMAIL_ADDRESS.matcher(target).matches()
@@ -30,9 +28,9 @@ class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent(g
             .demands(email, didAdd)
             .runs {
                 emailValid.update(validateEmail(email.value))
-                sideEffect(null) { extent ->
-                    extent.loginActivityBG.emailFeedbackTextView.text =
-                        if (extent.emailValid.value) {
+                sideEffect(null) {
+                    loginActivityBG.emailFeedbackTextView.text =
+                        if (emailValid.value) {
                             "✅"
                         } else {
                             "❌"

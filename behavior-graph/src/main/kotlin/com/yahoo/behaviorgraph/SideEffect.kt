@@ -16,14 +16,14 @@ internal interface RunnableSideEffect: SideEffect {
     fun runSideEffect()
 }
 
-internal class GraphSideEffect(val block: () -> Unit, override val behavior: Behavior?, override val debugName: String?): RunnableSideEffect {
+internal class GraphSideEffect(val thunk: Thunk, override val behavior: Behavior?, override val debugName: String?): RunnableSideEffect {
     override fun runSideEffect() {
-        block()
+        thunk.invoke()
     }
 }
 
-internal class ExtentSideEffect(val block: (ext: Extent) -> Unit, val extent: Extent, override val behavior: Behavior?, override val debugName: String? = null): RunnableSideEffect {
+internal class ExtentSideEffect<T>(val thunk: ExtentThunk<T>, val extent: T, override val behavior: Behavior?, override val debugName: String? = null): RunnableSideEffect {
     override fun runSideEffect() {
-        block(extent)
+        thunk.invoke(extent)
     }
 }

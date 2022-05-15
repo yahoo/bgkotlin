@@ -10,7 +10,7 @@ import com.yahoo.behaviorgraph.exception.BehaviorGraphException
  * it is no longer relevant.
  * Use [Moment] if you have no additional information.
  */
-class TypedMoment<T>(extent: Extent, debugName: String? = null): Resource(extent, debugName), Transient {
+class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: String? = null): Resource(extent, debugName), Transient {
     private var _happened = false
     private var _happenedWhen: Event? = null
     private var _happenedValue: T? = null
@@ -20,6 +20,7 @@ class TypedMoment<T>(extent: Extent, debugName: String? = null): Resource(extent
      * Otherwise throws an error.
      * A behavior must demand this resource to access its value.
      */
+    @get:JvmName("value")
     val value: T
         get() {
             assertValidAccessor()
@@ -32,6 +33,7 @@ class TypedMoment<T>(extent: Extent, debugName: String? = null): Resource(extent
      * If this Moment has ever been update what was the last Event it was updated.
      * A behavior must demand this resource to access this property.
      */
+    @get:JvmName("event")
     val event: Event?
         get() {
             assertValidAccessor()
@@ -42,6 +44,7 @@ class TypedMoment<T>(extent: Extent, debugName: String? = null): Resource(extent
     /**
      * Create a new action and call [update].
      */
+    @JvmOverloads
     fun updateWithAction(value: T, debugName: String? = null) {
         graph.action(debugName) { update(value) }
     }
@@ -68,10 +71,13 @@ class TypedMoment<T>(extent: Extent, debugName: String? = null): Resource(extent
      * Is there a current event and was this Moment resource updated during this event.
      * A behavior must demand this resource to access this property.
      */
-    override val justUpdated: Boolean get() {
+    @get:JvmName("justUpdated")
+    val justUpdated: Boolean get() {
         assertValidAccessor()
         return _happened
     }
+
+    override val internalJustUpdated: Boolean get() = justUpdated
 
     /**
      * Checks if [justUpdated] and if the associated value is `==` to the passed in value.

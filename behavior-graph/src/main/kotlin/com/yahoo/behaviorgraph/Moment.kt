@@ -8,7 +8,7 @@ package com.yahoo.behaviorgraph
  * single moment in time. A Button press is an example of a moment. It happens and then it is over.
  * Use [TypedMoment] if you wish to associate additional data with a Moment.
  */
-class Moment(extent: Extent, debugName: String? = null): Resource(extent, debugName), Transient {
+class Moment @JvmOverloads constructor(extent: Extent<*>, debugName: String? = null): Resource(extent, debugName), Transient {
     private var _happened = false
     private var _happenedWhen: Event? = null
 
@@ -16,6 +16,7 @@ class Moment(extent: Extent, debugName: String? = null): Resource(extent, debugN
      * If this Moment has ever been update what was the last Event it was updated.
      * A behavior must demand this resource to access this property.
      */
+    @get:JvmName("event")
     val event: Event?
         get() {
             assertValidAccessor()
@@ -26,11 +27,14 @@ class Moment(extent: Extent, debugName: String? = null): Resource(extent, debugN
      * Is there a current event and was this Moment resource updated during this event.
      * A behavior must demand this resource to access this property.
      */
-    override val justUpdated: Boolean
+    @get:JvmName("justUpdated")
+    val justUpdated: Boolean
         get() {
             assertValidAccessor()
             return _happened
         }
+
+    override val internalJustUpdated: Boolean get() = justUpdated
 
     /**
      * Mark this Moment resource as updated an activate any dependent behaviors.
@@ -47,6 +51,7 @@ class Moment(extent: Extent, debugName: String? = null): Resource(extent, debugN
     /**
      * Create a new action and call [update].
      */
+    @JvmOverloads
     fun updateWithAction(debugName: String? = null) {
         graph.action(debugName) { update() }
     }

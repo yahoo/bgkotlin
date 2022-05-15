@@ -6,7 +6,7 @@ package com.yahoo.behaviorgraph
 import kotlin.test.*
 
 class ExtentTest : AbstractBehaviorGraphTest() {
-    class TestExtentLocal(g: Graph) : Extent(g) {
+    class TestExtentLocal(g: Graph) : TestExtent(g) {
         val r1 = this.state<Int>(0, "r1")
         var r2 = this.state<Int>(0, "custom_r2")
         val b1 = this.behavior().demands(r1).supplies(r2).runs {
@@ -52,7 +52,7 @@ class ExtentTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `added resource is updated on adding`() {
-        val e = Extent(g)
+        val e = TestExtent(g)
         var runOnAdd = false
         e.behavior().demands(e.didAdd).runs {
             runOnAdd = true

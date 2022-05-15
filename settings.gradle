@@ -1,3 +1,4 @@
 rootProject.name = 'behavior-graph'
 include 'example'
 include 'behavior-graph'
+include 'tutorial-1'

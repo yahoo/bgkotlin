@@ -10,8 +10,8 @@ package com.yahoo.behaviorgraph
  * @property extent A behavior always has an [Extent] with which it is created.
  */
 class Behavior(
-    val extent: Extent, demands: List<Demandable>?, supplies: List<Resource>?,
-    internal var block: (Extent) -> Unit
+    val extent: Extent<*>, demands: List<Demandable>?, supplies: List<Resource>?,
+    internal var thunk: ExtentThunk<Extent<*>>
 ) : Comparable<Behavior> {
     /**
      * The current set of all Resources which the behavior demands.

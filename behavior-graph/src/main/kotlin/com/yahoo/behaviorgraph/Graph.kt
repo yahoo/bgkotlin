@@ -13,13 +13,13 @@ import java.util.ArrayDeque
 import java.util.PriorityQueue
 import kotlin.math.max
 
-
 /**
  * The core construct that represents the graph of behavior and resource nodes.
  * As many graphs can exist in the same program as you like; however nodes in one graph cannot directly link to nodes in another graph.
  * @param dateProvider Let's us offer an alternate source of timestamps for an [Event] typically used in testing.
  */
-class Graph constructor(private val dateProvider: DateProvider? = null) {
+
+class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = null) {
     /**
      * The current event if one is currently running.
      */
@@ -45,8 +45,8 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
     private var updatedTransients: MutableList<Transient> = mutableListOf()
     private var needsOrdering: MutableList<Behavior> = mutableListOf()
     private var eventLoopState: EventLoopState? = null
-    private var extentsAdded: MutableList<Extent> = mutableListOf()
-    private var extentsRemoved: MutableList<Extent> = mutableListOf()
+    private var extentsAdded: MutableList<Extent<*>> = mutableListOf()
+    private var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
 
     /**
      * Validating dependencies between nodes in the graph can take some additional time.
@@ -100,8 +100,9 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
      *
      * @param debugName let's us add additional context to an action for debugging
      */
-    fun actionAsync(debugName: String? = null, block: () -> Unit) {
-        val graphAction = GraphAction(block, debugName)
+    @JvmOverloads
+    fun actionAsync(debugName: String? = null, thunk: Thunk) {
+        val graphAction = GraphAction(thunk, debugName)
         asyncActionHelper(graphAction)
     }
 
@@ -120,8 +121,9 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
      *
      * @param debugName let's us add additional context to an action for debugging
      */
-    fun action(debugName: String? = null, block: () -> Unit) {
-        val graphAction = GraphAction(block, debugName)
+    @JvmOverloads
+    fun action(debugName: String? = null, thunk: Thunk) {
+        val graphAction = GraphAction(thunk, debugName)
         actionHelper(graphAction)
     }
 
@@ -228,7 +230,7 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
 
     private fun validateAddedExtents() {
         // ensure extents with same lifetime also got added
-        val needAdding: MutableSet<Extent> = mutableSetOf()
+        val needAdding: MutableSet<Extent<*>> = mutableSetOf()
         for (added in extentsAdded) {
             if (added.lifetime != null) {
                 for (ext in added.lifetime!!.getAllContainingExtents()) {
@@ -245,7 +247,7 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
 
     private fun validateRemovedExtents() {
         // validate extents with contained lifetimes are also removed
-        val needRemoving: MutableSet<Extent> = mutableSetOf()
+        val needRemoving: MutableSet<Extent<*>> = mutableSetOf()
         for (removed in extentsRemoved) {
             if (removed.lifetime != null) {
                 for (ext in removed.lifetime!!.getAllContainedExtents()) {
@@ -314,7 +316,7 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
         val behavior = activatedBehaviors.remove()
         if (behavior.removedWhen != sequence) {
             currentBehavior = behavior
-            behavior.block(behavior.extent)
+            behavior.thunk.invoke(behavior.extent)
             currentBehavior = null
         }
     }
@@ -323,6 +325,7 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
      * Creates a [SideEffect] and adds it to the queue.
      * All side effects in the queue will be run in order at the end of the current event.
      */
+    @JvmOverloads
     fun sideEffect(debugName: String? = null, block: () -> Unit) {
         sideEffectHelper(GraphSideEffect(block, currentBehavior, debugName))
     }
@@ -441,7 +444,7 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
 
             addedDemands?.forEach { demand ->
                 demand.subsequents.add(behavior)
-                if (demand.justUpdated) {
+                if (demand.internalJustUpdated) {
                     needsRunning = true
                 }
                 if (!orderBehavior) {
@@ -649,7 +652,7 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
         behavior.removedWhen = sequence
     }
 
-    internal fun addExtent(extent: Extent) {
+    internal fun addExtent(extent: Extent<*>) {
         if (extent.addedToGraphWhen != null) {
             throw BehaviorGraphException("Extent $extent has already been added to the graph: ${extent.graph}")
         }
@@ -678,7 +681,7 @@ class Graph constructor(private val dateProvider: DateProvider? = null) {
         }
     }
 
-    internal fun removeExtent(extent: Extent) {
+    internal fun removeExtent(extent: Extent<*>) {
         if (currentEvent == null) {
             throw BehaviorGraphException("Extents can only be removed during an event.")
         }

@@ -181,7 +181,7 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
 
     @Test
     fun `check cannot demand a resource from an extent that has not been added to graph`() {
-        val ext3 = Extent(g)
+        val ext3 = TestExtent(g)
         val mr1 = ext3.moment()
         ext.behavior().demands(mr1).runs {
 

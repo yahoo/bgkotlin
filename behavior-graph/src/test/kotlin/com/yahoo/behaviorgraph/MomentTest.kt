@@ -175,7 +175,7 @@ class MomentTest : AbstractBehaviorGraphTest() {
 
         // |> But Given behaviors that access value, event, or justUpdated for a resource
         // that is not supplied or demanded
-        val ext2 = Extent(g)
+        val ext2 = TestExtent(g)
         ext.addChildLifetime(ext2)
         ext2.behavior().demands(mr3).runs {
             mr2.value

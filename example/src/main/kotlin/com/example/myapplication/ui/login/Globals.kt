@@ -16,11 +16,6 @@ object Globals {
     }
 
     @JvmStatic
-    fun action(impulse: String, action: () -> Unit) {
-        graph.action(impulse, action)
-    }
-
-    @JvmStatic
     fun reinit() {
         graph = Graph()
     }

@@ -7,8 +7,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `have same lifetime`() {
         // |> Given two extents
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
 
         // |> When they are unified
         ext1.unifyLifetime(ext2)
@@ -22,8 +22,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `added in reverse have same lifetime`() {
         // |> Given two extents
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
 
         // |> When unified in reverse order
         ext2.unifyLifetime(ext1)
@@ -37,8 +37,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `must be established before adding`() {
         // |> Given two extents
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
 
         // |> When unified after adding one extent
         // |> Then it will throw an error
@@ -54,11 +54,11 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `merged other unified`() {
         // |> Given two sets of unified lifetimes
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.unifyLifetime(ext2)
-        val ext3 = Extent(g)
-        val ext4 = Extent(g)
+        val ext3 = TestExtent(g)
+        val ext4 = TestExtent(g)
         ext3.unifyLifetime(ext4)
 
         // |> When one from each is unified
@@ -75,8 +75,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can link as static demands`() {
         // |> Given two unified lifetime extents with a foreign supply and demand
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         val r1 = ext1.moment()
         val r2 = ext1.moment()
         ext2.behavior()
@@ -99,8 +99,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `independent lifetimes cannot link as static demands`() {
         // |> Given two independent with foreign demand
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         val r1 = ext1.moment()
         ext2.behavior()
             .demands(r1)
@@ -119,8 +119,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `independent lifetimes cannot link as static supplies`() {
         // |> Given two independent extents with a foreign supply
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         val r1 = ext1.moment()
         ext2.behavior()
             .supplies(r1)
@@ -139,8 +139,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can remove each other`() {
         // |> Given two unified extents
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.unifyLifetime(ext2)
         g.action {
             ext1.addToGraph()
@@ -159,8 +159,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `cannot be added before`() {
         // |> Given parent extent
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.addChildLifetime(ext2)
 
         // |> When child is added first
@@ -173,8 +173,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can be added simultaneously`() {
         // |> Given parent extent
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.addChildLifetime(ext2)
 
         // |> When they are added simultaneously
@@ -190,12 +190,12 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can establish child relationship in subsequent events`() {
         // |> Given an added extent
-        val ext1 = Extent(g)
+        val ext1 = TestExtent(g)
         ext1.addToGraphWithAction()
 
         // |> When we create and set a child relationship in a subsequent event
         // |> Then it should be fine
-        val ext2 = Extent(g)
+        val ext2 = TestExtent(g)
         assertNoThrow {
             ext1.addChildLifetime(ext2)
             ext2.addToGraphWithAction()
@@ -205,8 +205,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can supply and demand up lifetimes`() {
         // |> Given parent relationship with links up to parent
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.addChildLifetime(ext2)
         val r1 = ext1.moment()
         val r2 = ext1.moment()
@@ -226,8 +226,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         // exist. They must be dynamic
 
         // |> Given a parent relationship with demands in child
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.addChildLifetime(ext2)
         val r1 = ext2.moment()
         ext1.behavior().demands(r1).runs {}
@@ -245,8 +245,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `cannot static supply down lifetimes`() {
         // |> Given a parent relationship with supply in child
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.addChildLifetime(ext2)
         val r1 = ext2.moment()
         ext1.behavior().supplies(r1).runs {}
@@ -264,9 +264,9 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can remove with parent`() {
         // |> Given parent lifetimes
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
-        val ext3 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
+        val ext3 = TestExtent(g)
         ext1.addChildLifetime(ext2)
         ext1.addChildLifetime(ext3)
         g.action {
@@ -287,11 +287,11 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         // all children if they've already been defined.
 
         // |> Given two lifetimes with children
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.addChildLifetime(ext2)
-        val ext3 = Extent(g)
-        val ext4 = Extent(g)
+        val ext3 = TestExtent(g)
+        val ext4 = TestExtent(g)
         ext3.addChildLifetime(ext4)
 
         // |> When those lifetimes are merged
@@ -307,8 +307,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `prevents circular children`() {
         // |> Given a parent relationship
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.addChildLifetime(ext2)
 
         // |> When we try to set reverse relationship
@@ -321,9 +321,9 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `prevent circular children through unified`() {
         // |> Given a parent relationship and unified of child
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
-        val ext3 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
+        val ext3 = TestExtent(g)
         ext1.addChildLifetime(ext2)
         ext2.unifyLifetime(ext3)
 
@@ -337,9 +337,9 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `prevent circular children when unifying`() {
         // |> Given parent relationship
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
-        val ext3 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
+        val ext3 = TestExtent(g)
         ext2.addChildLifetime(ext3)
         ext3.addChildLifetime(ext1)
         // |> When parent becomes unified with child
@@ -352,9 +352,9 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can supply and demand up multiple generation lifetimes`() {
         // |> Given multiple generations
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
-        val ext3 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
+        val ext3 = TestExtent(g)
         ext1.addChildLifetime(ext2)
         ext2.addChildLifetime(ext3)
         val r1 = ext1.moment()
@@ -374,9 +374,9 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can supply and demand up and across generations lifetimes`() {
         // |> Given multiple generations with unified lifetimes
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
-        val ext3 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
+        val ext3 = TestExtent(g)
         ext1.unifyLifetime(ext2)
         ext2.addChildLifetime(ext3)
         val r1 = ext1.moment()
@@ -398,11 +398,11 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `can remove multiple levels of children`() {
         // |> Given multiple generations of children and unified
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
-        val ext3 = Extent(g)
-        val ext4 = Extent(g)
-        val ext5 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
+        val ext3 = TestExtent(g)
+        val ext4 = TestExtent(g)
+        val ext5 = TestExtent(g)
         ext1.addChildLifetime(ext2)
         ext2.unifyLifetime(ext3)
         ext2.addChildLifetime(ext4)
@@ -429,8 +429,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `confirm containing lifetimes have been added`() {
         // |> Given we have removed one unified extent
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.unifyLifetime(ext2)
 
         // |> When event compvales without having removed other member of unified
@@ -443,8 +443,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `confirm contained lifetimes have been removed`() {
         // |> Given we have removed a parent
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.addChildLifetime(ext2)
         ext1.addToGraphWithAction()
         ext2.addToGraphWithAction()
@@ -459,8 +459,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `confirm dynamic demands are unwound`() {
         // |> Given dynamic demands across foreign relationship
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         val r1 = ext2.moment()
         ext1.behavior()
             .dynamicDemands(ext1.didAdd) { listOf(r1) }
@@ -480,8 +480,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     @Test
     fun `confirm dynamic supplies are unwound`() {
         // |> Given dynamic supply across foreign relationship
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         val r1 = ext2.moment()
         ext1.behavior()
             .dynamicSupplies(ext1.didAdd) { listOf(r1) }
@@ -505,8 +505,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> Given we turn off lifetime validations
         g.validateLifetimes = false
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         ext1.unifyLifetime(ext2)
 
         // |> When adding only one member of unified
@@ -528,8 +528,8 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
     fun `can opt out of static link lifetime checks`() {
         // |> Given we turn off lifetime validations
         g.validateLifetimes = false
-        val ext1 = Extent(g)
-        val ext2 = Extent(g)
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
         val r1 = ext1.moment()
         val r2 = ext1.moment()
 

@@ -2,3 +2,7 @@ rootProject.name = 'behavior-graph'
 include 'example'
 include 'behavior-graph'
 include 'tutorial-1'
+include 'tutorial-2-swing'
+include 'code-walkthrough'
+include 'tutorial-3-swing'
+

@@ -5,8 +5,7 @@ package com.example.myapplication.ui.login
 
 import android.text.TextUtils
 import android.util.Patterns
-import com.yahoo.behaviorgraph.Extent
-import com.yahoo.behaviorgraph.Graph
+import com.yahoo.behaviorgraph.*
 
 class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent<LoginExtent>(graph) {
     val email = state("")
@@ -17,10 +16,6 @@ class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent<L
     val loggingIn = state(false)
     val loginClick = moment()
     val loginComplete = typedMoment<Boolean>()
-
-    private fun validateEmail(target: CharSequence?): Boolean {
-        return !TextUtils.isEmpty(target) && Patterns.EMAIL_ADDRESS.matcher(target).matches()
-    }
 
     init {
         behavior()
@@ -101,4 +96,9 @@ class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent<L
                 }
             }
     }
+
+    private fun validateEmail(target: CharSequence?): Boolean {
+        return !TextUtils.isEmpty(target) && Patterns.EMAIL_ADDRESS.matcher(target).matches()
+    }
+
 }

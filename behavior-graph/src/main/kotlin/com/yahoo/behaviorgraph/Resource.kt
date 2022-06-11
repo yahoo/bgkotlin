@@ -15,8 +15,8 @@ import com.yahoo.behaviorgraph.exception.BehaviorGraphException
  */
 open class Resource @JvmOverloads constructor(val extent: Extent<*>, var debugName: String? = null): Demandable {
     val graph: Graph = extent.graph
-    internal var subsequents: MutableSet<Behavior> = mutableSetOf()
-    var suppliedBy: Behavior? = null
+    internal var subsequents: MutableSet<Behavior<*>> = mutableSetOf()
+    var suppliedBy: Behavior<*>? = null
         internal set
 
     override val resource get() = this

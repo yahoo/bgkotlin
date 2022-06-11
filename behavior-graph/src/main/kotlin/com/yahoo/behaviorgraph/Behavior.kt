@@ -9,10 +9,10 @@ package com.yahoo.behaviorgraph
  * Behaviors have both static and dynamic links. You provide static links when you create the behavior. Behavior Graph will update dynamic links per special methods on BehaviorBuilder or you can update them directly on a behavior.
  * @property extent A behavior always has an [Extent] with which it is created.
  */
-class Behavior(
-    val extent: Extent<*>, demands: List<Demandable>?, supplies: List<Resource>?,
-    internal var thunk: ExtentThunk<Extent<*>>
-) : Comparable<Behavior> {
+class Behavior<T>(
+    val extent: Extent<T>, demands: List<Demandable>?, supplies: List<Resource>?,
+    internal var thunk: ExtentThunk<T>
+) : Comparable<Behavior<*>> {
     /**
      * The current set of all Resources which the behavior demands.
      */
@@ -42,7 +42,7 @@ class Behavior(
         this.untrackedSupplies = supplies
     }
 
-    override fun compareTo(other: Behavior): Int {
+    override fun compareTo(other: Behavior<*>): Int {
         return order.compareTo(other.order)
     }
 

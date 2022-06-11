@@ -9,21 +9,21 @@ package com.yahoo.behaviorgraph
  */
 interface SideEffect {
     val debugName: String?
-    val behavior: Behavior?
+    val behavior: Behavior<*>?
 }
 
 internal interface RunnableSideEffect: SideEffect {
     fun runSideEffect()
 }
 
-internal class GraphSideEffect(val thunk: Thunk, override val behavior: Behavior?, override val debugName: String?): RunnableSideEffect {
+internal class GraphSideEffect(val thunk: Thunk, override val behavior: Behavior<*>?, override val debugName: String?): RunnableSideEffect {
     override fun runSideEffect() {
         thunk.invoke()
     }
 }
 
-internal class ExtentSideEffect<T>(val thunk: ExtentThunk<T>, val extent: T, override val behavior: Behavior?, override val debugName: String? = null): RunnableSideEffect {
+internal class ExtentSideEffect<T>(val thunk: ExtentThunk<T>, val context: T, override val behavior: Behavior<T>?, override val debugName: String? = null): RunnableSideEffect {
     override fun runSideEffect() {
-        thunk.invoke(extent)
+        thunk.invoke(context)
     }
 }

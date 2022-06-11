@@ -60,12 +60,12 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         // each one keeps track of when it ran relative to the other
         val reordering: State<Unit> = ext.state(Unit, "reordering")
         var x_out = ext.state(0, "x_out")
-        val x_bhv: Behavior = ext.behavior().demands(r_a, reordering).supplies(x_out).runs {
+        val x_bhv: Behavior<*> = ext.behavior().demands(r_a, reordering).supplies(x_out).runs {
             whenX = counter
             counter = counter + 1
         }
         val y_out = ext.state(0, "y_out")
-        val y_bhv: Behavior = ext.behavior().demands(r_a, reordering).supplies(y_out).runs {
+        val y_bhv: Behavior<*> = ext.behavior().demands(r_a, reordering).supplies(y_out).runs {
             whenY = counter
             counter = counter + 1
         }

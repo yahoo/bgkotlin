@@ -24,8 +24,8 @@ internal class GraphAction(val thunk: Thunk, override val debugName: String? = n
     }
 }
 
-internal class ExtentAction<T>(val thunk: ExtentThunk<T>, val extent: T, override val debugName: String? = null): RunnableAction {
+internal class ExtentAction<T>(val thunk: ExtentThunk<T>, val context: T, override val debugName: String? = null): RunnableAction {
     override fun runAction() {
-        thunk.invoke(extent)
+        thunk.invoke(context)
     }
 }

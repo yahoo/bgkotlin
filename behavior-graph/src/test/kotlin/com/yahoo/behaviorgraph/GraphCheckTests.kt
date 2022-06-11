@@ -126,7 +126,7 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
         val r1 = ext.moment("r1")
         val r2 = ext.moment("r2")
         val r3 = ext.moment("r3")
-        var b3: Behavior? = null
+        var b3: Behavior<*>? = null
 
         ext.behavior().supplies(r2).demands(r1).runs {
             r2.update()

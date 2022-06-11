@@ -30,20 +30,20 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
      */
     var lastEvent: Event
         private set
-    private var activatedBehaviors: PriorityQueue<Behavior>
+    private var activatedBehaviors: PriorityQueue<Behavior<*>>
 
     /**
      * The current running behavior if one is running.
      */
-    var currentBehavior: Behavior? = null
+    var currentBehavior: Behavior<*>? = null
         private set
     private var effects: ArrayDeque<RunnableSideEffect> = ArrayDeque()
     private var actions: ArrayDeque<RunnableAction> = ArrayDeque()
-    private var untrackedBehaviors: MutableList<Behavior> = mutableListOf()
-    private var modifiedDemandBehaviors: MutableList<Behavior> = mutableListOf()
-    private var modifiedSupplyBehaviors: MutableList<Behavior> = mutableListOf()
+    private var untrackedBehaviors: MutableList<Behavior<*>> = mutableListOf()
+    private var modifiedDemandBehaviors: MutableList<Behavior<*>> = mutableListOf()
+    private var modifiedSupplyBehaviors: MutableList<Behavior<*>> = mutableListOf()
     private var updatedTransients: MutableList<Transient> = mutableListOf()
-    private var needsOrdering: MutableList<Behavior> = mutableListOf()
+    private var needsOrdering: MutableList<Behavior<*>> = mutableListOf()
     private var eventLoopState: EventLoopState? = null
     private var extentsAdded: MutableList<Extent<*>> = mutableListOf()
     private var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
@@ -302,7 +302,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         }
     }
 
-    private fun activateBehavior(behavior: Behavior, sequence: Long) {
+    private fun activateBehavior(behavior: Behavior<*>, sequence: Long) {
         if (behavior.enqueuedWhen == null || behavior.enqueuedWhen!! < sequence) {
             behavior.enqueuedWhen = sequence
             activatedBehaviors.add(behavior)
@@ -313,10 +313,10 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         if (activatedBehaviors.isEmpty()) {
             return
         }
-        val behavior = activatedBehaviors.remove()
+        val behavior: Behavior<Any> = activatedBehaviors.remove() as Behavior<Any>
         if (behavior.removedWhen != sequence) {
             currentBehavior = behavior
-            behavior.thunk.invoke(behavior.extent)
+            behavior.thunk.invoke(behavior.extent.context ?: behavior.extent)
             currentBehavior = null
         }
     }
@@ -493,7 +493,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         if (needsOrdering.isEmpty()) {
             return
         }
-        val localNeedsOrdering = mutableListOf<Behavior>()
+        val localNeedsOrdering = mutableListOf<Behavior<*>>()
 
         var x = 0
         while (x < needsOrdering.size) {
@@ -523,14 +523,14 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         if (needsReheap[0]) {
             // priorities have changed so we need to add existing elements to a new priority queue
             val oldQueue = activatedBehaviors
-            activatedBehaviors = PriorityQueue<Behavior>()
+            activatedBehaviors = PriorityQueue<Behavior<*>>()
             for (behavior in oldQueue) {
                 activatedBehaviors.add(behavior)
             }
         }
     }
 
-    private fun sortDFS(behavior: Behavior, needsReheap: MutableList<Boolean>) {
+    private fun sortDFS(behavior: Behavior<*>, needsReheap: MutableList<Boolean>) {
         if (behavior.orderingState == OrderingState.Ordering) {
             throw BehaviorDependencyCycleDetectedException(
                 "Behavior dependency cycle detected.", behavior,
@@ -559,7 +559,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         }
     }
 
-    private fun debugCycleForBehavior(behavior: Behavior): List<Resource> {
+    private fun debugCycleForBehavior(behavior: Behavior<*>): List<Resource> {
         val stack = mutableListOf<Resource>() //we'll "push" and "pop" from the end
         if (cycleDFS(behavior, behavior, stack)) {
             var output = mutableListOf<Resource>()
@@ -574,8 +574,8 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     }
 
     private fun cycleDFS(
-        currentBehavior: Behavior,
-        target: Behavior,
+        currentBehavior: Behavior<*>,
+        target: Behavior<*>,
         stack: MutableList<Resource>
     ): Boolean {
         currentBehavior.demands?.forEach { aResource ->
@@ -595,11 +595,11 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         return false
     }
 
-    private fun addBehavior(behavior: Behavior) {
+    private fun addBehavior(behavior: Behavior<*>) {
         this.untrackedBehaviors.add(behavior)
     }
 
-    internal fun updateDemands(behavior: Behavior, newDemands: List<Demandable>?) {
+    internal fun updateDemands(behavior: Behavior<*>, newDemands: List<Demandable>?) {
         if (behavior.extent.addedToGraphWhen == null) {
             throw BehaviorGraphException("Behavior must belong to graph before updating demands: $behavior")
         } else if (currentEvent == null) {
@@ -609,7 +609,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         modifiedDemandBehaviors.add(behavior)
     }
 
-    internal fun updateSupplies(behavior: Behavior, newSupplies: List<Resource>?) {
+    internal fun updateSupplies(behavior: Behavior<*>, newSupplies: List<Resource>?) {
         if (behavior.extent.addedToGraphWhen == null) {
             throw BehaviorGraphException("Behavior must belong to graph before updating supplies. Behavior=$behavior")
         } else if (currentEvent == null) {
@@ -619,7 +619,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         modifiedSupplyBehaviors.add(behavior)
     }
 
-    private fun removeBehavior(behavior: Behavior, sequence: Long) {
+    private fun removeBehavior(behavior: Behavior<*>, sequence: Long) {
         // If we demand a foreign resource then we should be
         // removed from its list of subsequents
         var removed = false

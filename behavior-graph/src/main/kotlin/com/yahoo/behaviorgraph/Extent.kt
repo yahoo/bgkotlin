@@ -39,18 +39,19 @@ import com.yahoo.behaviorgraph.exception.BehaviorGraphException
  * ```
  *
  */
-abstract class Extent<ExtentSubType: Extent<ExtentSubType>>(val graph: Graph) {
+open class Extent<ExtentContext>(val graph: Graph, val context: ExtentContext? = null) {
     var debugName: String = javaClass.simpleName
-    internal var behaviors: MutableList<Behavior> = mutableListOf()
+    internal var behaviors: MutableList<Behavior<ExtentContext>> = mutableListOf()
     internal var resources: MutableList<Resource> = mutableListOf()
     internal var addedToGraphWhen: Long? = null
-    var didAdd: State<Boolean>
-    internal var didAddBehavior: Behavior
+    internal var didAddBehavior: Behavior<ExtentContext>
     internal var lifetime: ExtentLifetime? = null
 
+    @get:JvmName("didAdd")
+    val didAdd: State<Boolean> = State(this, false)
+
     init {
-        didAdd = State(this, false)
-        didAddBehavior = behavior().supplies(didAdd).runs { it.didAdd.update(true) }
+        didAddBehavior = behavior().supplies(didAdd).runs { this.didAdd.update(true) }
     }
 
     /**
@@ -83,7 +84,7 @@ abstract class Extent<ExtentSubType: Extent<ExtentSubType>>(val graph: Graph) {
         }
     }
 
-    internal fun addBehavior(behavior: Behavior) {
+    internal fun addBehavior(behavior: Behavior<ExtentContext>) {
         this.behaviors.add(behavior)
     }
 
@@ -192,7 +193,7 @@ abstract class Extent<ExtentSubType: Extent<ExtentSubType>>(val graph: Graph) {
     /**
      * Creates a [BehaviorBuilder] to create a [Behavior] associated with this [Extent]
      */
-    fun behavior(): BehaviorBuilder<ExtentSubType> {
+    fun behavior(): BehaviorBuilder<ExtentContext> {
         return BehaviorBuilder(this)
     }
 
@@ -200,8 +201,8 @@ abstract class Extent<ExtentSubType: Extent<ExtentSubType>>(val graph: Graph) {
      * Calls [Graph.sideEffect] on the Graph instance associated with this [Extent].
      */
     @JvmOverloads
-    fun sideEffect(debugName: String? = null, thunk: ExtentThunk<ExtentSubType>) {
-        val sideEffect = ExtentSideEffect(thunk, this as ExtentSubType, this.graph.currentBehavior, debugName)
+    fun sideEffect(debugName: String? = null, thunk: ExtentThunk<ExtentContext>) {
+        val sideEffect = ExtentSideEffect(thunk, (context ?: this) as ExtentContext, this.graph.currentBehavior as Behavior<ExtentContext>?, debugName)
         graph.sideEffectHelper(sideEffect)
     }
 
@@ -209,8 +210,8 @@ abstract class Extent<ExtentSubType: Extent<ExtentSubType>>(val graph: Graph) {
      * Calls [Graph.actionAsync] on the Graph instance associated with this [Extent].
      */
     @JvmOverloads
-    fun actionAsync(debugName: String? = null, thunk: ExtentThunk<ExtentSubType>) {
-        val action = ExtentAction(thunk, this as ExtentSubType, debugName)
+    fun actionAsync(debugName: String? = null, thunk: ExtentThunk<ExtentContext>) {
+        val action = ExtentAction(thunk, (context ?: this) as ExtentContext, debugName)
         graph.asyncActionHelper(action)
     }
 
@@ -218,8 +219,8 @@ abstract class Extent<ExtentSubType: Extent<ExtentSubType>>(val graph: Graph) {
      * Calls [Graph.action] on the Graph instance associated with this [Extent].
      */
     @JvmOverloads
-    fun action(debugName: String? = null, thunk: ExtentThunk<ExtentSubType>) {
-        val action = ExtentAction(thunk, this as ExtentSubType, debugName)
+    fun action(debugName: String? = null, thunk: ExtentThunk<ExtentContext>) {
+        val action = ExtentAction(thunk, (context ?: this) as ExtentContext, debugName)
         graph.actionHelper(action)
     }
 }

@@ -328,7 +328,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
     @Test
     fun `defining behavior visible inside side effect`() {
         var m1 = ext.moment()
-        var defininingBehavior: Behavior? = null
+        var defininingBehavior: Behavior<*>? = null
         var createdBehavior = ext.behavior().demands(m1).runs {
             ext.sideEffect {
                 defininingBehavior = ext.graph.currentSideEffect?.behavior

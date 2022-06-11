@@ -5,5 +5,5 @@ fun interface Thunk {
 }
 
 fun interface ExtentThunk<T> {
-    fun invoke(ext: T)
+    fun invoke(ctx: T)
 }

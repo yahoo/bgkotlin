@@ -84,4 +84,48 @@ class ExtentTest : AbstractBehaviorGraphTest() {
             e.removeFromGraph()
         }
     }
+
+    class NonSubclass(g: Graph) {
+        val extent = Extent<NonSubclass>(g, this)
+        val r1 = extent.state<Int>(0, "r1")
+        var r2 = extent.state<Int>(0, "custom_r2")
+
+        init {
+            extent.behavior().demands(r1).supplies(r2).runs {
+                r2.update(r1.value * 2)
+            }
+        }
+        fun injectNumber(num: Int) {
+            r1.updateWithAction(num)
+        }
+    }
+
+    @Test
+    fun `non-extent-subclass also works`() {
+        val nonSubclass = NonSubclass(g)
+        nonSubclass.extent.addToGraphWithAction()
+        nonSubclass.injectNumber(2)
+        assertEquals(nonSubclass.r2.value, 4)
+    }
+
+    @Test
+    fun `extent methods return context objects`() {
+        val nonSubclass = NonSubclass(g)
+        // add a behavior to test that nonSubclass is the one that's run
+        nonSubclass.extent.behavior()
+            .demands(nonSubclass.extent.didAdd)
+            .runs {
+                assertEquals(it, nonSubclass)
+                it.extent.sideEffect {
+                    assertEquals(it, nonSubclass)
+                    it.extent.action {
+                        assertEquals(it, nonSubclass)
+                    }
+                    it.extent.actionAsync {
+                        assertEquals(it, nonSubclass)
+                    }
+                }
+            }
+        nonSubclass.extent.addToGraphWithAction()
+    }
 }

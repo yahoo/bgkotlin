@@ -1,11 +1,11 @@
 package com.yahoo.behaviorgraph
 
 fun interface DemandableLinks<T> {
-    fun invoke(ext: T): List<Demandable?>?
+    fun invoke(ctx: T): List<Demandable?>?
 }
 
 fun interface SuppliableLinks<T> {
-    fun invoke(ext: T): List<Resource?>?
+    fun invoke(ctx: T): List<Resource?>?
 }
 
 /**
@@ -22,7 +22,7 @@ fun interface SuppliableLinks<T> {
  *   }
  * ```
  */
-class BehaviorBuilder<T : Extent<T>>(
+class BehaviorBuilder<T>(
     internal val extent: Extent<T>
 ) {
     private var untrackedDemands: MutableList<Demandable> = mutableListOf()
@@ -123,7 +123,7 @@ class BehaviorBuilder<T : Extent<T>>(
      * @return The behavior that was created. Typically the results are discarded unless you need direct access to the
      * behavior later.
      */
-    fun runs(thunk: ExtentThunk<T>): Behavior {
+    fun runs(thunk: ExtentThunk<T>): Behavior<T> {
         var dynamicDemandResource: Resource? = null
         if (dynamicDemandSwitches != null) {
             dynamicDemandResource = extent.resource("(BG Dynamic Demand Resource)")
@@ -144,7 +144,7 @@ class BehaviorBuilder<T : Extent<T>>(
             }
         }
 
-        val mainBehavior = Behavior(extent, untrackedDemands, untrackedSupplies, thunk as ExtentThunk<Extent<*>>)
+        val mainBehavior = Behavior(extent, untrackedDemands, untrackedSupplies, thunk)
 
         if (dynamicDemandSwitches != null) {
             var supplies: List<Resource>? = null

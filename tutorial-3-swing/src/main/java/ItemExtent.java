@@ -31,25 +31,25 @@ public class ItemExtent extends Extent<ItemExtent> {
                                 });
         behavior()
             .demands(itemText, getDidAdd())
-            .runs(ext -> {
-                sideEffect(ext1 -> {
+            .runs(ctx -> {
+                sideEffect(ctx1 -> {
                     itemUI.itemText.setText(itemText.value());
                 });
             });
 
         behavior()
             .demands(completed, getDidAdd())
-            .runs(ext -> {
-                sideEffect(ext1 -> {
+            .runs(ctx -> {
+                sideEffect(ctx1 -> {
                     itemUI.setCompleted(completed.value());
                 });
             });
 
         behavior()
             .demands(list.selected, getDidAdd())
-            .runs(ext -> {
+            .runs(ctx -> {
                 var selected = list.selected.value() == this;
-                sideEffect(ext1 -> {
+                sideEffect(ctx1 -> {
                     itemUI.setSelected(selected);
                 });
             });

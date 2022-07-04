@@ -39,7 +39,7 @@ import com.yahoo.behaviorgraph.exception.BehaviorGraphException
  * ```
  *
  */
-open class Extent<ExtentContext>(val graph: Graph, val context: ExtentContext? = null) {
+open class Extent<ExtentContext> @JvmOverloads constructor(val graph: Graph, var context: ExtentContext? = null) {
     var debugName: String = javaClass.simpleName
     internal var behaviors: MutableList<Behavior<ExtentContext>> = mutableListOf()
     internal var resources: MutableList<Resource> = mutableListOf()
@@ -47,7 +47,6 @@ open class Extent<ExtentContext>(val graph: Graph, val context: ExtentContext? =
     internal var didAddBehavior: Behavior<ExtentContext>
     internal var lifetime: ExtentLifetime? = null
 
-    @get:JvmName("didAdd")
     val didAdd: State<Boolean> = State(this, false)
 
     init {

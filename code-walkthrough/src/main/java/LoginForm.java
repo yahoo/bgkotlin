@@ -13,7 +13,7 @@ public class LoginForm extends Extent<LoginForm> {
         behavior()
             .supplies(loggingIn)
             .demands(loginClick)
-            .runs(ext -> {
+            .runs(ctx -> {
                 if (loginClick.justUpdated() && !this.loggingIn.value()) {
                     loggingIn.update(true);
                 }
@@ -22,20 +22,21 @@ public class LoginForm extends Extent<LoginForm> {
         behavior()
             .supplies(loginEnabled)
             .demands(email, password, loggingIn)
-            .runs(ext -> {
+            .runs(ctx -> {
                 boolean emailValid = validateEmail(email.value());
                 boolean passwordValid = password.value().length() > 0;
                 boolean enabled = emailValid && passwordValid && !loggingIn.value();
                 loginEnabled.update(enabled);
 
-                sideEffect(ext1 -> {
-                    loginButton.setEnabled(loginEnabled.value());
+                sideEffect(ctx1 -> {
+//                    loginButton.setEnabled(loginEnabled.value());
                 });
             });
     }
 
     private boolean validateEmail(String email) {
         // ... validate email code goes here
+        return true;
     }
 }
 

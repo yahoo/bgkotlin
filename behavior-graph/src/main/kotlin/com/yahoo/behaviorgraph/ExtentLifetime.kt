@@ -31,7 +31,7 @@ internal class ExtentLifetime(
                 addChildLifetime(it)
             }
             // then make any extents in other lifetime part of this one
-            extent.lifetime!!.extents?.forEach {
+            extent.lifetime!!.extents.forEach {
                 it.lifetime = this
                 extents.add(it)
             }

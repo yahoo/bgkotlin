@@ -463,7 +463,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         val ext2 = TestExtent(g)
         val r1 = ext2.moment()
         ext1.behavior()
-            .dynamicDemands(ext1.didAdd) { listOf(r1) }
+            .dynamicDemands(ext1.didAdd) { _, demands -> demands.add(r1) }
             .runs {}
         g.action {
             ext1.addToGraph()
@@ -484,7 +484,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         val ext2 = TestExtent(g)
         val r1 = ext2.moment()
         ext1.behavior()
-            .dynamicSupplies(ext1.didAdd) { listOf(r1) }
+            .dynamicSupplies(ext1.didAdd) { _, supplies -> supplies.add(r1) }
             .runs {}
         g.action {
             ext1.addToGraph()

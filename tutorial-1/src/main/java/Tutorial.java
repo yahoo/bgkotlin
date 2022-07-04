@@ -39,7 +39,7 @@ class TutorialExtent extends Extent<TutorialExtent> {
         behavior()
                 .supplies(message, sentMessage)
                 .demands(person, greeting, button)
-                .runs(ext -> {
+                .runs(ctx -> {
                     message.update(greeting.value() + ", " + person.value() + "!");
                     if (button.justUpdated()) {
                         System.out.println(message.value());
@@ -49,7 +49,7 @@ class TutorialExtent extends Extent<TutorialExtent> {
 
         behavior()
                 .demands(message, sentMessage, loggingEnabled)
-                .runs(ext -> {
+                .runs(ctx -> {
                     if (loggingEnabled.value()) {
                         if (message.justUpdated()) {
                             System.out.println("Message changed to: " + message.value() + " : " + message.event().getTimestamp());
@@ -58,20 +58,6 @@ class TutorialExtent extends Extent<TutorialExtent> {
                             System.out.println("Message sent: " + message.value() + " : " + message.event().getTimestamp());
                         }
                     }
-                });
-
-        behavior()
-                .dynamicDemands(List.of(sentMessage, loggingEnabled), RelinkingOrder.RelinkingOrderSubsequent, ext -> {
-                    return List.of();
-                })
-                .demands(message)
-                .runs(ext -> {
-
-                });
-
-        behavior()
-                .dynamicDemands(new Demandable[]{sentMessage}, ext -> {
-                    return null;
                 });
     }
 

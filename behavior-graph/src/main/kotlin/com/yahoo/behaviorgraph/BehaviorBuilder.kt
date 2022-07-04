@@ -1,11 +1,11 @@
 package com.yahoo.behaviorgraph
 
 fun interface DemandableLinks<T> {
-    fun invoke(ctx: T): List<Demandable?>?
+    fun invoke(ctx: T, demands: MutableList<Demandable?>)
 }
 
 fun interface SuppliableLinks<T> {
-    fun invoke(ctx: T): List<Resource?>?
+    fun invoke(ctx: T, supplies: MutableList<Resource?>)
 }
 
 /**
@@ -52,12 +52,15 @@ class BehaviorBuilder<T>(
      * Example:
      * ```kotlin
      * extentInstance.behavior()
-     *   .dynamicDemands(resource1, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) { listOf(resource2, resource3) }
+     *   .dynamicDemands(resource1, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) { ctx, demands ->
+     *     demands.add(resource2)
+     *     demands.add(resource3)
+     *   }
      *   .runs { ...
      * ```
      * @param switches When these resources change, the `links` code block will run to determine which additional demands a behavior should depend on.
      * @param relinkingOrder Should the dynamic demands be set before or after the behavior is run. If in doubt choose `RelinkingOrderPrior`
-     * @param links This anonymous function should return the additional set of demands the behavior will include. The `ext` parameter points to the [Extent] this behaivor is created on.
+     * @param links This anonymous function passes in an empty list of dynamic demands. You should add any additional demands the behavior will include. The `ctx` parameter points to the context object for the [Extent] this behaivor is created on.
      */
     @JvmOverloads
     fun dynamicDemands(
@@ -87,13 +90,16 @@ class BehaviorBuilder<T>(
      * Example:
      * ```kotlin
      * extentInstance.behavior()
-     *   .dynamicSupplies(resource1, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) { listOf(resource2, resource3) }
+     *   .dynamicSupplies(resource1, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) { ctx, supplies ->
+     *     supplies.add(resource2)
+     *     supplies.add(resource3)
+     *   }
      *   .runs { ...
      * ```
      *
      * @param switches When these resources change, the `links` code block will run to determine which additional supplies a behavior should be responsible for.
      * @param relinkingOrder Should the dynamic supplies be set before or after the behavior is run. If in doubt choose `RelinkingOrderPrior` (which is the default).
-     * @param links This anonymous function should return the additional set of supplies the behavior will include. The `ext` parameter points to the [Extent] this behaivor is created on.
+     * @param links This anonymous function passes in an empty list of dynamic supplies. You should add any additional supplies the behavior will include. The `ctx` parameter points to the context object for the [Extent] this behaivor is created on.
      */
     @JvmOverloads
     fun dynamicSupplies(
@@ -156,8 +162,9 @@ class BehaviorBuilder<T>(
                 demands.add(dynamicDemandResource!!)
             }
             Behavior(extent, demands, supplies) {
-                val demandLinks = dynamicDemandLinks!!.invoke(it as T)
-                mainBehavior.setDynamicDemands(demandLinks)
+                val mutableListOfDemands = mutableListOf<Demandable?>()
+                dynamicDemandLinks!!.invoke(it, mutableListOfDemands)
+                mainBehavior.setDynamicDemands(mutableListOfDemands)
             }
         }
 
@@ -171,8 +178,9 @@ class BehaviorBuilder<T>(
                 demands.add(dynamicSupplyResource!!)
             }
             Behavior(extent, demands, supplies) {
-                var supplyLinks = dynamicSupplyLinks!!.invoke(it as T)
-                mainBehavior.setDynamicSupplies(supplyLinks)
+                val mutableListOfSupplies = mutableListOf<Resource?>()
+                dynamicSupplyLinks!!.invoke(it, mutableListOfSupplies)
+                mainBehavior.setDynamicSupplies(mutableListOfSupplies)
             }
         }
 

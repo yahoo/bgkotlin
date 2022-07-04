@@ -20,14 +20,14 @@ public class ListExtent extends Extent<ListExtent> {
         behavior()
             .supplies(allItems)
             .demands(save, removeItem)
-            .runs(ext -> {
+            .runs(ctx -> {
                 if (save.justUpdated() && selected.traceValue() == null) {
                     var item = new ItemExtent(graph, save.value(), this);
                     addChildLifetime(item);
                     item.addToGraph();
                     allItems.value().add(item);
                     allItems.updateForce(allItems.value());
-                    sideEffect(ext1 -> {
+                    sideEffect(ctx1 -> {
                         listUI.addItem(item.itemUI);
                         listUI.newItemText.setText("");
                     });
@@ -36,7 +36,7 @@ public class ListExtent extends Extent<ListExtent> {
                     item.removeFromGraph();
                     allItems.value().remove(item);
                     allItems.updateForce(allItems.value());
-                    sideEffect(ext1 -> {
+                    sideEffect(ctx1 -> {
                         listUI.removeItem(item.itemUI);
                     });
                 }
@@ -44,11 +44,13 @@ public class ListExtent extends Extent<ListExtent> {
         
         behavior()
             .demands(allItems, getDidAdd())
-            .dynamicDemands(new Demandable[]{allItems},ext -> {
-                return allItems.value().stream().map(itemExtent -> itemExtent.completed).collect(Collectors.toList());
+            .dynamicDemands(new Demandable[]{allItems}, (ctx, demands) -> {
+                for (ItemExtent item: allItems.value()) {
+                    demands.add(item.completed);
+                }
             })
-            .runs(ext -> {
-                sideEffect(ext1 -> {
+            .runs(ctx -> {
+                sideEffect(ctx1 -> {
                     long count = allItems.value().stream().filter(itemExtent -> !itemExtent.completed.value()).count();
                     listUI.setRemainingCount(count);
                 });
@@ -57,7 +59,7 @@ public class ListExtent extends Extent<ListExtent> {
         behavior()
             .supplies(selected)
             .demands(selectRequest, save)
-            .runs(ext -> {
+            .runs(ctx -> {
                 if (selectRequest.justUpdated()) {
                     if (selected.value() == selectRequest.value()) {
                         selected.update(null);
@@ -69,18 +71,20 @@ public class ListExtent extends Extent<ListExtent> {
                 }
 
                 if (selected.justUpdated()) {
-                    sideEffect(ext1 -> {
+                    sideEffect(ctx1 -> {
                         listUI.setSelected(selected.value());
                     });
                 }
             });
 
         behavior()
-            .dynamicSupplies(new Demandable[]{allItems}, ext -> {
-                return allItems.value().stream().map(item -> item.itemText).collect(Collectors.toList());
+            .dynamicSupplies(new Demandable[]{allItems}, (ctx, supplies) -> {
+                for (ItemExtent item: allItems.value()) {
+                    supplies.add(item.itemText);
+                }
             })
             .demands(save)
-            .runs(ext -> {
+            .runs(ctx -> {
                 if (save.justUpdated() && selected.traceValue() != null) {
                     selected.traceValue().itemText.update(save.value());
                 }

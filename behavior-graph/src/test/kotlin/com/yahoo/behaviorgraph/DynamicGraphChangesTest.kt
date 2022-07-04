@@ -256,11 +256,12 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         val r3 = ext.moment()
         var didRun = false
         ext.behavior()
-            .dynamicDemands(r1) {
-                listOf(r2, null)
+            .dynamicDemands(r1) { _, demands ->
+                demands.add(r2)
+                demands.add(null)
             }
-            .dynamicSupplies(r1) {
-                listOf(r3)
+            .dynamicSupplies(r1) { _, supplies ->
+                supplies.add(r3)
             }
             .runs {
                 didRun = true
@@ -359,9 +360,9 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         var behaviorOrder: Long = 0
         ext.behavior()
             .demands(m1)
-            .dynamicDemands(m2) {
+            .dynamicDemands(m2) { _, demands ->
                 relinkBehaviorOrder = ext.graph.currentBehavior!!.order
-                return@dynamicDemands listOf(m3)
+                demands.add(m3)
             }
             .runs {
                 runCount++
@@ -400,9 +401,9 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         var relinkingOrder: Long? = null
         var behaviorOrder: Long? = null
         ext.behavior()
-            .dynamicDemands(m1) {
+            .dynamicDemands(m1) { _, demands ->
                 relinkingOrder = ext.graph.currentBehavior!!.order
-                return@dynamicDemands listOf(m1)
+                demands.add(m1)
             }
             .runs {
                 behaviorOrder = ext.graph.currentBehavior!!.order
@@ -429,9 +430,9 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         var behaviorOrder: Long = 0
         ext.behavior()
             .demands(m1)
-            .dynamicSupplies(m2) {
-                relinkingBehaviorOrder = it.graph.currentBehavior!!.order
-                return@dynamicSupplies listOf(m3)
+            .dynamicSupplies(m2) { ctx, supplies ->
+                relinkingBehaviorOrder = ctx.graph.currentBehavior!!.order
+                supplies.add(m3)
             }
             .runs {
                 behaviorOrder = ext.graph.currentBehavior!!.order
@@ -552,12 +553,11 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         var relinkingOrder: Long? = null
         var behaviorOrder: Long? = null
         ext.behavior()
-            .dynamicDemands(m1, ext.didAdd, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) {
+            .dynamicDemands(m1, ext.didAdd, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) { _, demands ->
                 if (ext.didAdd.justUpdated) {
-                    return@dynamicDemands listOf(m2)
+                    demands.add(m2)
                 } else {
                     relinkingOrder = ext.graph.currentBehavior!!.order
-                    return@dynamicDemands listOf()
                 }
             }
             .runs {
@@ -595,8 +595,8 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         val s1 = ext.state<Long>(0)
         val m1 = ext.moment()
         ext.behavior()
-            .dynamicSupplies(m1, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) {
-                return@dynamicSupplies listOf(s1)
+            .dynamicSupplies(m1, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) { _, supplies ->
+                supplies.add(s1)
             }
             .demands(m1)
             .runs {
@@ -625,7 +625,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         val ext1 = TestExtent(g)
         val r1 = ext1.moment()
         val ext2 = TestExtent(g)
-        ext2.behavior().dynamicDemands(ext2.didAdd) { listOf(r1) }.runs {}
+        ext2.behavior().dynamicDemands(ext2.didAdd) { _, demands -> demands.add(r1) }.runs {}
         // |> When that extent is added
         // |> Then it should raise an error
         assertBehaviorGraphException {

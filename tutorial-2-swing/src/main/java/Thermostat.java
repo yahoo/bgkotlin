@@ -34,13 +34,13 @@ public class Thermostat extends Extent<Thermostat> {
         behavior()
                 .supplies(desiredTemperature)
                 .demands(up, down, getDidAdd())
-                .runs(ext -> {
+                .runs(ctx -> {
                     if (up.justUpdated()) {
                         desiredTemperature.update(desiredTemperature.value() + 1);
                     } else if (down.justUpdated()) {
                         desiredTemperature.update(desiredTemperature.value() - 1);
                     }
-                    sideEffect(ext1 -> {
+                    sideEffect(ctx1 -> {
                         ui.desiredTemp.setText(desiredTemperature.value().toString());
                     });
                 });
@@ -48,8 +48,8 @@ public class Thermostat extends Extent<Thermostat> {
         // Update current temperature display
         behavior()
                 .demands(currentTemperature, getDidAdd())
-                .runs(ext -> {
-                    sideEffect(ext1 -> {
+                .runs(ctx -> {
+                    sideEffect(ctx1 -> {
                         ui.currentTemp.setText(currentTemperature.value().toString());
                     });
                 });
@@ -58,10 +58,10 @@ public class Thermostat extends Extent<Thermostat> {
         behavior()
                 .supplies(heatOn)
                 .demands(currentTemperature, desiredTemperature, getDidAdd())
-                .runs(ext -> {
+                .runs(ctx -> {
                     boolean on = desiredTemperature.value() > currentTemperature.value();
                     heatOn.update(on);
-                    sideEffect(ext1 -> {
+                    sideEffect(ctx1 -> {
                         ui.heatStatus.setText("Heat " + (heatOn.value() ? "On" : "Off"));
                     });
                 });
@@ -69,15 +69,15 @@ public class Thermostat extends Extent<Thermostat> {
         // Control heating equipment
         behavior()
                 .demands(heatOn)
-                .runs(ext -> {
+                .runs(ctx -> {
                     if (heatOn.justUpdatedTo(true)) {
-                        sideEffect(ext1 -> {
+                        sideEffect(ctx1 -> {
                             ui.turnOnHeat(e -> {
                                 currentTemperature.updateWithAction(currentTemperature.value() + 1);
                             });
                         });
                     } else if (heatOn.justUpdatedTo(false)) {
-                        sideEffect(ext1 -> {
+                        sideEffect(ctx1 -> {
                             ui.turnOffHeat();
                         });
                     }

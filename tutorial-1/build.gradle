@@ -1,0 +1,11 @@
+plugins {
+    id 'application'
+}
+
+application {
+    mainClass = 'Tutorial'
+}
+
+dependencies {
+    implementation project(':behavior-graph')
+}

@@ -3,7 +3,7 @@
 //
 package com.example.myapplication.ui.login
 
-import com.yahoo.behaviorgraph.Graph
+import behaviorgraph.Graph
 
 object Globals {
     init {
@@ -13,11 +13,6 @@ object Globals {
 
     init {
         reinit()
-    }
-
-    @JvmStatic
-    fun action(impulse: String, action: () -> Unit) {
-        graph.action(impulse, action)
     }
 
     @JvmStatic

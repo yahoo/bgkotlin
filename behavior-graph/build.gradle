@@ -15,6 +15,12 @@ java {
     withSourcesJar()
 }
 
+tasks.named('jar') {
+    manifest {
+        attributes('Automatic-Module-Name': 'behaviorgraph')
+    }
+}
+
 def dokkaJavadocJar = tasks.register("dokkaJavadocJar", org.gradle.jvm.tasks.Jar) {
     it.dependsOn(dokkaJavadoc)
     it.from(dokkaJavadoc.outputDirectory)
@@ -23,13 +29,29 @@ def dokkaJavadocJar = tasks.register("dokkaJavadocJar", org.gradle.jvm.tasks.Jar
 }
 
 publishing {
+    repositories {
+        maven {
+            def releasesRepoUrl = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://oss.sonatype.org/content/repositories/snapshots/"
+            url = releasesRepoUrl //version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                if (project.hasProperty("ossrhUsername")) {
+                    username = ossrhUsername
+                    password = ossrhPassword
+                }
+            }
+        }
+    }
     publications {
         release(MavenPublication) {
             from components.java
-            groupId = 'com.yahoo.behavior-graph'
-            artifactId = 'bgkotlin'
-            version = '0.5.0-RC1'
+            groupId = 'com.yahoo.behaviorgraph'
+            artifactId = 'bgjvm'
+            version = '0.7.0'
             artifact dokkaJavadocJar
+            repositories {
+
+            }
             pom {
                 name = 'Behavior Graph'
                 description = 'Behavior Graph lets you build your programs out of small, easily understood pieces in a way that lets the computer do more of the work for you.'
@@ -57,11 +79,13 @@ publishing {
     }
 }
 
-signing {
-    sign configurations.archives
-    sign publishing.publications.release
-}
 
+signing {
+    if (project.hasProperty("signing.keyId")) {
+        sign configurations.archives
+        sign publishing.publications.release
+    }
+}
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"

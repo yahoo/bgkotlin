@@ -17,13 +17,22 @@ We originally developed it for ourselves to use in a video playing library at Ya
 
 It's also possible you're the type of person who likes nerdy new software ideas. (Seriously though, who doesn't, amirite?) If that's the case, we guarantee you will find Behavior Graph interesting.
 
+## Can I see an example?
+
+Behavior Graph introduces a handful of new concepts.
+These concepts aren't difficult, but you will require some orientation.
+
+* We've created a [short walk-through of a Login form](https://yahoo.github.io/bgdocs/docs/jvm/code-example/) using Behavior Graph.
+* You can also take a look at [one of our tutorials](https://yahoo.github.io/bgdocs/docs/jvm/tutorial-1/).
+
+
 ## How does it Work?
 
-As programmers it's natural to partition our software into subtasks. For example, let's consider what happens on a typical login form.
+As programmers, it's natural to partition our software into subtasks. For example, let's consider what happens on a typical login form.
 
 1. When a user clicks on the Login button, we want to validate the Email and Password fields.
 2. If validation passes, then we want to make a network call to log the user in.
-3. Additionally we want to update the UI to provide feedback in case the validation fails, or disable the login button while we are actively logging in.
+3. Additionally, we want to update the UI to provide feedback in case the validation fails, or disable the login button while we are actively logging in.
   
 Most programming languages offer __functions__ as the primary tool for creating these subtasks. Conceptually we have three subtasks. So we will create three corresponding functions: `validateFields`, `networkLogin`, and `updateUI`. We will also need an additional `onLoginClick` function to run these tasks. It will look like this:
 
@@ -65,16 +74,6 @@ This gives us:
 
 Behavior Graph isn't a replacement for functions. (We wrote it with functions, hello!) Instead it gives us higher level abstractions for partitioning our code into subtasks. It lets us say "these two blocks of code are related and here's how". And with that information the computer is able to run things for us. And humans are better able to infer the intent of the code.
 
-## Can I see an example?
-
-__We are updating our Kotlin documentation. Below are links to our Javascript/Typescript port which has a very similar API__
-
-Behavior Graph introduces a handful of new concepts.
-These concepts aren't difficult, but you will require some orientation.
-
-* We've created a [short walk-through of a Login form](https://yahoo.github.io/bgdocs/docs/typescript/code-example/) using Behavior Graph.
-* You can also take a look at [one of our tutorials](https://yahoo.github.io/bgdocs/docs/typescript/tutorials/tutorial-1/).
-
 ## Small
 
 Behavior Graph is a small library. It's around 1500 lines of formatted code. It has no dependencies.
@@ -98,21 +97,21 @@ Behavior Graph has been ported to multiple platforms.
 
 ## Should I Use it in my Project?
 
-This Kotlin version is not used in production at Yahoo currently. It is a direct port from the original Objective-C. It has excellent test coverage. We are confident it works as intended.
+This Kotlin is minimally used at Yahoo currently. It is a direct port from the original Objective-C. It has excellent test coverage. We are confident it works as intended.
 
 But it is also newly open sourced. You won't find blog posts and Stack Overflow answers to your questions. If you are on a team that expects that type of support you should proceed with caution.
 
 ## Obtaining Behavior Graph
 
-Currently available only in source form on Github.
+Behavior Graph is available in source form on [Github](https://github.com/yahoo/bgkotlin).
+
+It is also available on Maven Central @ [com.yahoo.behaviorgraph/bgjvm](https://search.maven.org/artifact/com.yahoo.behaviorgraph/bgjvm).
 
 ## Documentation
 
-__We are updating our Kotlin documentation. Below are links to our Javascript/Typescript port which has a very similar API__
+[Go here for the full documentation site](https://yahoo.github.io/bgdocs/docs/).
 
-[Go here for the full documentation site](https://yahoo.github.io/bgdocs/docs/typescript/).
-
-While there are only a handful of basic concepts in Behavior Graph, it does require a shift in thinking. We recommend you start with the [Getting Started guide](https://yahoo.github.io/bgdocs/docs/typescript/quickstart/) then work through the [Tutorials](https://yahoo.github.io/bgdocs/docs/typescript/tutorials/tutorial-1/).
+While there are only a handful of basic concepts in Behavior Graph, it does require a shift in thinking. We recommend you start with the [Getting Started guide](https://yahoo.github.io/bgdocs/docs/jvm/quickstart/) then work through the [Tutorials](https://yahoo.github.io/bgdocs/docs/jvm/tutorial-1/).
 
 ## Contact Us
 

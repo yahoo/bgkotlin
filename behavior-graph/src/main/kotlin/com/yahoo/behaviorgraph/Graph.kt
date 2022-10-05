@@ -559,7 +559,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         }
     }
 
-    private fun debugCycleForBehavior(behavior: Behavior<*>): List<Resource> {
+    fun debugCycleForBehavior(behavior: Behavior<*>): List<Resource> {
         val stack = mutableListOf<Resource>() //we'll "push" and "pop" from the end
         if (cycleDFS(behavior, behavior, stack)) {
             var output = mutableListOf<Resource>()

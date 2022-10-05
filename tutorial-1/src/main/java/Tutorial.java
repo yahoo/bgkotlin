@@ -1,6 +1,7 @@
-import com.yahoo.behaviorgraph.*;
-
-import java.util.List;
+import behaviorgraph.Extent;
+import behaviorgraph.Graph;
+import behaviorgraph.Moment;
+import behaviorgraph.State;
 
 public class Tutorial {
   public static void main(String[] args) {

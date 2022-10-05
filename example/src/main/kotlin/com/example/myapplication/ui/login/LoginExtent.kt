@@ -5,7 +5,8 @@ package com.example.myapplication.ui.login
 
 import android.text.TextUtils
 import android.util.Patterns
-import com.yahoo.behaviorgraph.*
+import behaviorgraph.Extent
+import behaviorgraph.Graph
 
 class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent<LoginExtent>(graph) {
     val email = state("")

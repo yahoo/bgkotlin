@@ -1,4 +1,4 @@
-import com.yahoo.behaviorgraph.Graph;
+import behaviorgraph.Graph;
 
 public class Tutorial {
     public static void main(String[] args) {

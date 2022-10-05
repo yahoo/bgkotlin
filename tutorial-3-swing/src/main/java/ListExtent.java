@@ -1,7 +1,6 @@
-import com.yahoo.behaviorgraph.*;
+import behaviorgraph.*;
 
 import java.util.ArrayList;
-import java.util.stream.Collectors;
 
 public class ListExtent extends Extent<ListExtent> {
     TypedMoment<String> save = typedMoment();

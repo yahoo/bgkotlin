@@ -1,4 +1,7 @@
-import com.yahoo.behaviorgraph.*;
+import behaviorgraph.Extent;
+import behaviorgraph.Graph;
+import behaviorgraph.Moment;
+import behaviorgraph.State;
 
 public class LoginForm extends Extent<LoginForm> {
     State<Boolean> loginEnabled = state(false);

@@ -3,7 +3,7 @@
 //
 package com.example.myapplication.ui.login
 
-import com.yahoo.behaviorgraph.Graph
+import behaviorgraph.Graph
 
 object Globals {
     init {

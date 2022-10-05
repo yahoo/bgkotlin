@@ -1,7 +1,7 @@
-import com.yahoo.behaviorgraph.Extent;
-import com.yahoo.behaviorgraph.Graph;
-import com.yahoo.behaviorgraph.Moment;
-import com.yahoo.behaviorgraph.State;
+import behaviorgraph.Extent;
+import behaviorgraph.Graph;
+import behaviorgraph.Moment;
+import behaviorgraph.State;
 
 public class Thermostat extends Extent<Thermostat> {
   State<Integer> desiredTemperature;

@@ -1,4 +1,4 @@
-import com.yahoo.behaviorgraph.Graph;
+import behaviorgraph.Graph;
 
 import javax.swing.*;
 

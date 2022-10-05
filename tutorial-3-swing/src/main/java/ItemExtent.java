@@ -1,4 +1,6 @@
-import com.yahoo.behaviorgraph.*;
+import behaviorgraph.Extent;
+import behaviorgraph.Graph;
+import behaviorgraph.State;
 
 import java.awt.event.ItemEvent;
 import java.awt.event.MouseAdapter;

@@ -104,7 +104,9 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
      */
     fun addToGraph() {
         if (graph.currentEvent != null) {
-            nameResources()
+            if (graph.automaticResourceNaming) {
+                nameResources()
+            }
             graph.addExtent(this)
         } else {
             throw BehaviorGraphException("addToGraph must be called within an event. Extent=$this")

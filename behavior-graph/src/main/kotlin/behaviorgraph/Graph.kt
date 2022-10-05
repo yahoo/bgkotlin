@@ -59,6 +59,13 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     var validateLifetimes: Boolean = true
 
     /**
+     * System uses reflection to automatically name resources as extents are added to the graph.
+     * This makes debugging significantly easier; however it does come with some small cost.
+     * You may disable this here.
+     */
+    var automaticResourceNaming: Boolean = true
+
+    /**
      * The current action may update one or more resources. Inspecting this list lets us
      * identify which action initiated the current event.
      */

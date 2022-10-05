@@ -51,6 +51,18 @@ class ExtentTest : AbstractBehaviorGraphTest() {
     }
 
     @Test
+    fun `automatic naming can be disabled`() {
+        g.automaticResourceNaming = false
+        val e = TestExtentLocal(g)
+        e.addToGraphWithAction()
+
+        // won't get automatic name
+        assertEquals(null, e.r1.debugName)
+        // custom name still works
+        assertEquals("custom_r2", e.r2.debugName)
+    }
+
+    @Test
     fun `added resource is updated on adding`() {
         val e = TestExtent(g)
         var runOnAdd = false

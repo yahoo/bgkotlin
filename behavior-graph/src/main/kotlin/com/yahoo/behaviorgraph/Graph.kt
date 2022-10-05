@@ -666,10 +666,9 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                     extent.lifetime!!.addedToGraphWhen = currentEvent!!.sequence
                 }
             }
-            if (extent.lifetime?.parent != null) {
-                if (extent.lifetime!!.parent!!.addedToGraphWhen == null) {
-                    throw BehaviorGraphException("Extent with child lifetime must be added after parent.")
-                }
+            val refParent = extent.lifetime?.parent?.get()
+            if (refParent != null && refParent!!.addedToGraphWhen == null) {
+                throw BehaviorGraphException("Extent with child lifetime must be added after parent.")
             }
         }
 

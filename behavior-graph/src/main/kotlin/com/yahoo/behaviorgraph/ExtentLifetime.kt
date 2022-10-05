@@ -3,17 +3,22 @@ package com.yahoo.behaviorgraph
 import com.yahoo.behaviorgraph.exception.BehaviorGraphException
 import com.yahoo.behaviorgraph.exception.ChildLifetimeCannotBeParent
 import com.yahoo.behaviorgraph.exception.SameLifetimeMustBeEstablishedBeforeAddingToGraph
+import java.lang.ref.WeakReference
+import java.util.WeakHashMap
 
 internal class ExtentLifetime(
     extent: Extent<*>
 ){
     var addedToGraphWhen: Long? = null
-    val extents: MutableSet<Extent<*>> = mutableSetOf()
-    var children: MutableSet<ExtentLifetime>? = null
-    var parent: ExtentLifetime? = null
+    // WeakHashMaps prevent extents from holding on to each other internally
+    // otherwise we would need a hypothetical removeChildExtent when finished
+    // in order for it to be fully released
+    val extents: WeakHashMap<Extent<*>, Boolean> = WeakHashMap()
+    var children: WeakHashMap<ExtentLifetime, Boolean>? = null
+    var parent: WeakReference<ExtentLifetime>? = null
 
     init {
-        extents.add(extent)
+        extents[extent] = true
         if (extent.addedToGraphWhen != null) {
             addedToGraphWhen = extent.addedToGraphWhen
         }
@@ -27,17 +32,17 @@ internal class ExtentLifetime(
         if (extent.lifetime != null) {
             // merge existing lifetimes and children into one lifetime heirarchy
             // move children first
-            extent.lifetime!!.children?.forEach {
-                addChildLifetime(it)
+            extent.lifetime!!.children?.forEach {(lifetime, _) ->
+                addChildLifetime(lifetime)
             }
             // then make any extents in other lifetime part of this one
-            extent.lifetime!!.extents.forEach {
+            extent.lifetime!!.extents.forEach { (it, _) ->
                 it.lifetime = this
-                extents.add(it)
+                extents[it] = true
             }
         } else {
             extent.lifetime = this
-            extents.add(extent)
+            extents[extent] = true
         }
     }
 
@@ -51,17 +56,18 @@ internal class ExtentLifetime(
     fun addChildLifetime(lifetime: ExtentLifetime) {
         var myLifetime: ExtentLifetime? = this
         while (myLifetime != null) {
+            // check up the chain of parents to prevent circular lifetime
             if (myLifetime == lifetime) {
                 val err = BehaviorGraphException("Extent lifetime cannot be a child of itself")
                 throw err
             }
-            myLifetime = myLifetime.parent
+            myLifetime = myLifetime!!.parent?.get()
         }
-        lifetime.parent = this
+        lifetime.parent = WeakReference(this)
         if (children == null) {
-            children = mutableSetOf<ExtentLifetime>()
+            children = WeakHashMap()
         }
-        children?.add(lifetime)
+        children?.put(lifetime, true)
     }
 
     fun hasCompatibleLifetime(lifetime: ExtentLifetime?): Boolean {
@@ -71,7 +77,11 @@ internal class ExtentLifetime(
         } else if (lifetime != null) {
             // parents
             if (parent != null) {
-                return parent!!.hasCompatibleLifetime(lifetime)
+                // parent is a weak reference so we get it here
+                val refParent = parent!!.get()
+                if (refParent != null) {
+                    return refParent.hasCompatibleLifetime(lifetime)
+                }
             }
         }
         return false
@@ -79,15 +89,18 @@ internal class ExtentLifetime(
 
     fun getAllContainedExtents(): List<Extent<*>> {
         val resultExtents = mutableListOf<Extent<*>>()
-        resultExtents.addAll(extents)
-        children?.forEach { resultExtents.addAll(it.getAllContainedExtents()) }
+        resultExtents.addAll(extents.keys)
+        children?.forEach { (childLifetime, _) -> resultExtents.addAll(childLifetime.getAllContainedExtents()) }
         return resultExtents
     }
 
     fun getAllContainingExtents(): List<Extent<*>> {
         val resultExtents = mutableListOf<Extent<*>>()
-        resultExtents.addAll(extents)
-        parent?.let { resultExtents.addAll(it.getAllContainingExtents()) }
+        resultExtents.addAll(extents.keys)
+        parent?.let {
+            it.get()?.let {
+                resultExtents.addAll(it.getAllContainingExtents()) }
+            }
         return resultExtents
     }
 }

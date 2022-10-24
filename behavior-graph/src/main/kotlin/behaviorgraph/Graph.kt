@@ -693,4 +693,21 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         }
         extent.addedToGraphWhen = null
     }
+
+    override fun toString(): String {
+        return buildString {
+            if (currentEvent != null) {
+                append(String.format("Current Event: %d\n", currentEvent!!.sequence))
+            } else {
+                append("No current event")
+            }
+            if (eventLoopState != null) {
+                append(eventLoopState!!.toString())
+                append("\n")
+            }
+            if (currentBehavior != null) {
+                append(currentBehavior!!.toString())
+            }
+        }
+    }
 }

@@ -52,4 +52,8 @@ open class Resource @JvmOverloads constructor(val extent: Extent<*>, var debugNa
             throw BehaviorGraphException("Cannot access the value or event of a resource inside a behavior unless it is supplied or demanded.")
         }
     }
+
+    override fun toString(): String {
+        return String.format("%s (r)", debugName ?: "resource")
+    }
 }

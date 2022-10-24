@@ -66,6 +66,10 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
         _happened = false
     }
 
+    override fun toString(): String {
+        return String.format("%s (tm) == %s (%s)", debugName ?: "resource", if (_happened) _happenedValue else "NA", event?.sequence)
+    }
+
     /**
      * Is there a current event and was this Moment resource updated during this event.
      * A behavior must demand this resource to access this property.

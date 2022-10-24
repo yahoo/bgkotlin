@@ -48,6 +48,7 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
     val didAdd: State<Boolean> = State(this, false)
 
     init {
+        didAdd.debugName = "_didAdd_"
         didAddBehavior = behavior().supplies(didAdd).runs { this.didAdd.update(true) }
     }
 
@@ -227,4 +228,9 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
         val action = ExtentAction(thunk, (context ?: this) as ExtentContext, debugName)
         graph.actionHelper(action)
     }
+
+    override fun toString(): String {
+        return graph.toString()
+    }
+
 }

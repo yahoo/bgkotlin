@@ -5,4 +5,5 @@ include 'tutorial-1'
 include 'tutorial-2-swing'
 include 'code-walkthrough'
 include 'tutorial-3-swing'
+include 'perftests'
 

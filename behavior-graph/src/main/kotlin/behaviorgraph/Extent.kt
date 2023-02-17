@@ -3,6 +3,8 @@
 //
 package behaviorgraph
 
+import java.lang.Exception
+
 /**
  * An **Extent** is a collection of resources and behaviors. Extents allow us to
  * add (and remove) all those resources and behaviors to a graph at the same time.
@@ -150,14 +152,18 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
         // context object or this extent if none
         val focus: Any = context ?: this
         focus.javaClass.declaredFields.forEach { field ->
-            // iterate through each field and see if its a resource subclass
+            // iterate through each field and see if it's a resource subclass
             if ((Resource::class.java as Class).isAssignableFrom(field.type)) {
                 // sometimes fields aren't accessible to reflection, try enabling that
-                if (field.trySetAccessible()) {
+                try {
+                    field.setAccessible(true)
                     val resource = field.get(focus) as Resource
                     if (resource.debugName == null) {
                         resource.debugName = field.name
                     }
+                } catch (e: Exception) {
+                    // can't make the field accessible to set its debug name.
+                    // See java.lang.setAccessible for reasons why it might fail
                 }
             }
         }

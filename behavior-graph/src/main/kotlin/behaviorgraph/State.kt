@@ -14,7 +14,8 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
     Transient {
     private var currentState = StateHistory(initialState, InitialEvent)
     private var priorStateDuringEvent: StateHistory<T>? = null
-
+    public var internalMutableFlow: Any? = null // really will be a MutableFlow from kotlinx coroutines but I don't want it to be required
+    public var internalFlowUpdater: (() -> Unit)? = null
     /**
      * The current underlying value.
      * A behavior must demand this State resource in order to access this property.
@@ -93,6 +94,8 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
         }
 
         currentState = StateHistory(newValue, this.graph.currentEvent!!)
+        internalFlowUpdater?.let { it() }
+
         this.graph.resourceTouched(this)
         this.graph.trackTransient(this)
     }

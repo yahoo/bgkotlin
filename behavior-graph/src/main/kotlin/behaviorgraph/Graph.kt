@@ -5,7 +5,6 @@ package behaviorgraph
 
 import behaviorgraph.Event.Companion.InitialEvent
 import java.lang.System.currentTimeMillis
-import java.util.ArrayDeque
 import java.util.PriorityQueue
 import kotlin.math.max
 
@@ -149,7 +148,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     }
 
     private fun eventLoop() {
-        while (true) {
+       while (true) {
             try {
                 if (activatedBehaviors.size > 0 ||
                     untrackedBehaviors.size > 0 ||

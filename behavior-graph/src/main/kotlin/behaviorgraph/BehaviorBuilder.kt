@@ -123,6 +123,12 @@ class BehaviorBuilder<T: Any>(
     }
 
     /**
+     * Alternate form of `runs` for Kotlin because `.run()` is a builtin scope function
+     * and is easily confused with Behavior Graph's `.runs()`.
+     */
+    fun performs(thunk: ExtentThunk<T>): Behavior<T> = runs(thunk)
+
+    /**
      * Required clause which sets the block of code the behavior will run when one or more of its demands are updated.
      * The `ext` parameter passed in when the behavior is run is the [Extent] instance this behavior was created on.
      *

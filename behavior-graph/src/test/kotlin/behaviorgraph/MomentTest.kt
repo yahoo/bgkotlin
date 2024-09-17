@@ -80,6 +80,43 @@ class MomentTest : AbstractBehaviorGraphTest() {
         assertTrue(didRun)
     }
 
+    @Test
+    fun `updatedValue returns optional wrapped value`() {
+        // In some cases justUpdatedValue may be easier to work with
+        // than checking for justUpdated and getting the value
+        // however kotlin collapses the nulls, so there's no notion of
+        // unwrapping as you might find in
+        val mr1: TypedMoment<String> = ext.typedMoment()
+        val mr2: TypedMoment<String?> = ext.typedMoment()
+
+        g.action {
+            g.sideEffect {
+                // mr1 was not just updated, so justUpdatedValue is null
+                assertNull(mr1.justUpdatedValue)
+                var run = false
+            }
+        }
+
+        g.action {
+            mr1.update("hello")
+            mr2.update(null)
+
+            g.sideEffect {
+                // mr1 was updated and it's value was hello so justUpdatedValue is hello
+                assertEquals("hello", mr1.justUpdatedValue)
+                // mr2 was also just updated, but with a value of null
+                assertTrue(mr2.justUpdated)
+                // however justUpdatedValue is null, so ?.let pattern will not run
+                var run = false
+                mr2.justUpdatedValue?.let {
+                    run = true
+                    assertNull(it)
+                }
+                assertFalse(run)
+            }
+        }
+    }
+
     //checks below
     @Test
     fun `check happen requires graph`() {

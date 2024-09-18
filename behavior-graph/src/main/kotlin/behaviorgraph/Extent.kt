@@ -48,6 +48,7 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
     val didAdd: State<Boolean> = State(this, false)
 
     init {
+        didAdd.debugName = "_didAdd_"
         didAddBehavior = behavior().supplies(didAdd).runs { this.didAdd.update(true) }
     }
 
@@ -148,17 +149,21 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
     private fun nameResources() {
         // context object or this extent if none
         val focus: Any = context ?: this
-        focus.javaClass.declaredFields.forEach { field ->
-            // iterate through each field and see if its a resource subclass
-            if ((Resource::class.java as Class).isAssignableFrom(field.type)) {
-                // sometimes fields aren't accessible to reflection, try enabling that
-                if (field.trySetAccessible()) {
+        try {
+            focus.javaClass.declaredFields.forEach { field ->
+                // iterate through each field and see if its a resource subclass
+                if ((Resource::class.java as Class).isAssignableFrom(field.type)) {
+                    // sometimes fields aren't accessible to reflection, try enabling that
+                    field.isAccessible = true // throws error if not possible
                     val resource = field.get(focus) as Resource
                     if (resource.debugName == null) {
                         resource.debugName = field.name
                     }
                 }
             }
+        } catch (ex: Exception) {
+            // throws error if we cannot make fields accessible for security reasons
+            // catching the error is fine here, it just means we won't get debug names
         }
     }
 
@@ -227,4 +232,9 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
         val action = ExtentAction(thunk, (context ?: this) as ExtentContext, debugName)
         graph.actionHelper(action)
     }
+
+    override fun toString(): String {
+        return graph.toString()
+    }
+
 }

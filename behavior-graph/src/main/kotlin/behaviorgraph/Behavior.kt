@@ -47,7 +47,20 @@ class Behavior<T: Any>(
     }
 
     override fun toString(): String {
-        return "Behavior()"
+        var rows = mutableListOf<String>("Behavior")
+        supplies?.forEachIndexed { index, resource ->
+            if (index == 0) {
+                rows.add(" Supplies:")
+            }
+            rows.add("  " + resource.toString())
+        }
+        demands?.forEachIndexed { index, resource ->
+            if (index == 0) {
+                rows.add(" Demands:")
+            }
+            rows.add("  " + resource.toString())
+        }
+        return rows.joinToString("\n")
     }
 
     /**

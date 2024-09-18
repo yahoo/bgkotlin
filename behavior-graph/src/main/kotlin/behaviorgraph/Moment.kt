@@ -61,4 +61,8 @@ class Moment @JvmOverloads constructor(extent: Extent<*>, debugName: String? = n
         _happened = false
     }
 
+    override fun toString(): String {
+        return String.format("%s (m) == %s (%s)", debugName ?: "resource", if (_happened) "Updated" else "Not Updated", event?.sequence)
+    }
+
 }

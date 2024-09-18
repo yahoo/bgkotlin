@@ -29,6 +29,17 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
         }
 
     /**
+     * Optional version value() property which may be more convenient.
+     * Returns T if justUpdated is true, null otherwise
+     * Be careful: It is possible that T is also an optional type itself
+     * So this typedMoment could be called with .update(null).
+     * In that case justUpdated will be true but justUpdatedValue would be null.
+     */
+    @get:JvmName("justUpdatedValue")
+    val justUpdatedValue: T?
+        get() = _happenedValue
+
+    /**
      * If this Moment has ever been update what was the last Event it was updated.
      * A behavior must demand this resource to access this property.
      */
@@ -64,6 +75,10 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
     override fun clear() {
         _happenedValue = null
         _happened = false
+    }
+
+    override fun toString(): String {
+        return String.format("%s (tm) == %s (%s)", debugName ?: "resource", if (_happened) _happenedValue else "NA", event?.sequence)
     }
 
     /**

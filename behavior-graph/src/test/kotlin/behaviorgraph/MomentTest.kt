@@ -59,8 +59,8 @@ class MomentTest : AbstractBehaviorGraphTest() {
         // |> Then the data is visible in subsequent behaviors
         assertEquals(1, afterUpdate)
         assertTrue(updatedToOne)
-        // but is an Exception outside event loop
-        assertBehaviorGraphException { mr1.value }
+        // but null after event
+        assertNull(mr1.value)
     }
 
     @Test
@@ -81,19 +81,14 @@ class MomentTest : AbstractBehaviorGraphTest() {
     }
 
     @Test
-    fun `updatedValue returns optional wrapped value`() {
-        // In some cases justUpdatedValue may be easier to work with
-        // than checking for justUpdated and getting the value
-        // however kotlin collapses the nulls, so there's no notion of
-        // unwrapping as you might find in
+    fun `value is optional`() {
         val mr1: TypedMoment<String> = ext.typedMoment()
         val mr2: TypedMoment<String?> = ext.typedMoment()
 
         g.action {
             g.sideEffect {
-                // mr1 was not just updated, so justUpdatedValue is null
-                assertNull(mr1.justUpdatedValue)
-                var run = false
+                // mr1 was not just updated, so value is null
+                assertNull(mr1.value)
             }
         }
 
@@ -102,15 +97,15 @@ class MomentTest : AbstractBehaviorGraphTest() {
             mr2.update(null)
 
             g.sideEffect {
-                // mr1 was updated and it's value was hello so justUpdatedValue is hello
-                assertEquals("hello", mr1.justUpdatedValue)
+                // mr1 was updated, and it's value was hello so value is hello
+                assertEquals("hello", mr1.value)
                 // mr2 was also just updated, but with a value of null
                 assertTrue(mr2.justUpdated)
-                // however justUpdatedValue is null, so ?.let pattern will not run
+                assertNull(mr2.value)
+                // because is null, so ?.let pattern will not run
                 var run = false
-                mr2.justUpdatedValue?.let {
+                mr2.value?.let {
                     run = true
-                    assertNull(it)
                 }
                 assertFalse(run)
             }

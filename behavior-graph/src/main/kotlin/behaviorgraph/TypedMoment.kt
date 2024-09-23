@@ -16,28 +16,18 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
 
     /**
      * Is there a current event and if the moment updated then what is the associated data.
-     * Otherwise throws an error.
+     * Will return null if the moment did not update this event.
+     * Be careful: It is possible that T is also an optional type itself
+     * So this typedMoment could be called with .update(null).
+     * In that case justUpdated will be true and value will also be null.
      * A behavior must demand this resource to access its value.
      */
     @get:JvmName("value")
-    val value: T
+    val value: T?
         get() {
             assertValidAccessor()
-            if (!_happened) { throw BehaviorGraphException("Cannot access moment value when it did not update.")
-            }
-            return this._happenedValue!!
+            return this._happenedValue
         }
-
-    /**
-     * Optional version value() property which may be more convenient.
-     * Returns T if justUpdated is true, null otherwise
-     * Be careful: It is possible that T is also an optional type itself
-     * So this typedMoment could be called with .update(null).
-     * In that case justUpdated will be true but justUpdatedValue would be null.
-     */
-    @get:JvmName("justUpdatedValue")
-    val justUpdatedValue: T?
-        get() = _happenedValue
 
     /**
      * If this Moment has ever been update what was the last Event it was updated.

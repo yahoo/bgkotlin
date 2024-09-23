@@ -5,14 +5,21 @@
 
 plugins {
     id "org.jetbrains.kotlin.jvm"
-    id "maven-publish"
     id "java-library"
-    id "signing"
     id "org.jetbrains.dokka"
+    id "com.vanniktech.maven.publish" version "0.29.0"
 }
 
 java {
     withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+    }
 }
 
 tasks.named('jar') {
@@ -28,63 +35,41 @@ def dokkaJavadocJar = tasks.register("dokkaJavadocJar", org.gradle.jvm.tasks.Jar
 
 }
 
-publishing {
-    repositories {
-        maven {
-            def releasesRepoUrl = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
-            def snapshotsRepoUrl = "https://oss.sonatype.org/content/repositories/snapshots/"
-            url = releasesRepoUrl //version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
-            credentials {
-                if (project.hasProperty("ossrhUsername")) {
-                    username = ossrhUsername
-                    password = ossrhPassword
-                }
+import com.vanniktech.maven.publish.KotlinJvm
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.SonatypeHost
+
+mavenPublishing {
+    configure(new KotlinJvm(new JavadocJar.Dokka("dokkaHtml"), true))
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    coordinates("com.yahoo.behaviorgraph", "bgjvm", "0.8.0")
+    pom {
+        name = 'Behavior Graph'
+        description = 'Behavior Graph lets you build your programs out of small, easily understood pieces in a way that lets the computer do more of the work for you.'
+        url = 'https://github.com/yahoo/bgkotlin'
+        licenses {
+            license {
+                name = 'The Apache License, Version 2.0'
+                url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
             }
         }
-    }
-    publications {
-        release(MavenPublication) {
-            from components.java
-            groupId = 'com.yahoo.behaviorgraph'
-            artifactId = 'bgjvm'
-            version = '0.8.0'
-            artifact dokkaJavadocJar
-            repositories {
-
-            }
-            pom {
-                name = 'Behavior Graph'
-                description = 'Behavior Graph lets you build your programs out of small, easily understood pieces in a way that lets the computer do more of the work for you.'
-                url = 'https://github.com/yahoo/bgkotlin'
-                licenses {
-                    license {
-                        name = 'The Apache License, Version 2.0'
-                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                    }
-                }
-                developers {
-                    developer {
-                        id = 'slevin'
-                        name = 'Sean Levin'
-                        email = 'slevin@yahooinc.com'
-                    }
-                }
-                scm {
-                    connection = 'scm:git:git://github.com/yahoo/bgkotlin.git'
-                    developerConnection = 'scm:git:ssh://github.com:yahoo/bgkotlin.git'
-                    url = 'https://github.com/yahoo/bgkotlin'
-                }
+        developers {
+            developer {
+                id = 'slevin'
+                name = 'Sean Levin'
+                email = 'slevin@yahooinc.com'
             }
         }
+        scm {
+            connection = 'scm:git:git://github.com/yahoo/bgkotlin.git'
+            developerConnection = 'scm:git:ssh://github.com:yahoo/bgkotlin.git'
+            url = 'https://github.com/yahoo/bgkotlin'
+        }
     }
-}
+
+    signAllPublications()
 
 
-signing {
-    if (project.hasProperty("signing.keyId")) {
-        sign configurations.archives
-        sign publishing.publications.release
-    }
 }
 
 dependencies {

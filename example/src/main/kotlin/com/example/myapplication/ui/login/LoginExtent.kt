@@ -86,9 +86,9 @@ class LoginExtent(var loginActivityBG: LoginActivityBG, graph: Graph) : Extent<L
                     if (loggingIn.value) {
                         status = "Logging in...";
                     } else if (loggingIn.justUpdatedTo(false)) {
-                        if (loginComplete.justUpdated && loginComplete.value) {
+                        if (loginComplete.value == true) {
                             status = "Login Success";
-                        } else if (loginComplete.justUpdated && !loginComplete.value) {
+                        } else if (loginComplete.value == false) {
                             status = "Login Failed";
                         }
                     }

@@ -47,6 +47,8 @@ open class Resource @JvmOverloads constructor(val extent: Extent<*>, var debugNa
 
     internal fun assertValidAccessor() {
         if (!graph.validateDependencies) { return }
+        // allow access to state from alternate threads while running
+        if (graph.eventLoopState != null && graph.eventLoopState!!.thread != Thread.currentThread()) { return }
         val currentBehavior = graph.currentBehavior
         if (currentBehavior != null && currentBehavior != suppliedBy && !(currentBehavior.demands?.contains(this) ?: false)) {
             throw BehaviorGraphException("Cannot access the value or event of a resource inside a behavior unless it is supplied or demanded.")

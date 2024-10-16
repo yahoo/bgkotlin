@@ -3,6 +3,8 @@
 //
 package behaviorgraph
 
+import java.util.concurrent.Future
+
 /**
  * A Moment is a type of resource is a type of Resource for tracking information that exists at a
  * single moment in time. A Button press is an example of a moment. It happens and then it is over.
@@ -53,8 +55,10 @@ class Moment @JvmOverloads constructor(extent: Extent<*>, debugName: String? = n
      * Create a new action and call [update].
      */
     @JvmOverloads
-    fun updateWithAction(debugName: String? = null) {
-        graph.action(debugName) { update() }
+    fun updateWithAction(debugName: String? = null): Future<*> {
+        return graph.action(debugName) {
+            update()
+        }
     }
 
     override fun clear() {

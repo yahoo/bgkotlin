@@ -134,7 +134,7 @@ class ExtentTest : AbstractBehaviorGraphTest() {
                     it.extent.action {
                         assertEquals(it, nonSubclass)
                     }
-                    it.extent.actionAsync {
+                    it.extent.action {
                         assertEquals(it, nonSubclass)
                     }
                 }

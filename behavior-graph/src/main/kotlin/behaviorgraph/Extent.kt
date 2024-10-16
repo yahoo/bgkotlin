@@ -3,6 +3,8 @@
 //
 package behaviorgraph
 
+import java.util.concurrent.Future
+
 /**
  * An **Extent** is a collection of resources and behaviors. Extents allow us to
  * add (and remove) all those resources and behaviors to a graph at the same time.
@@ -94,8 +96,8 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
      * Creates an Action on the graph and calls [addToGraph]
      */
     @JvmOverloads
-    fun addToGraphWithAction(debugName: String? = null) {
-        this.graph.action(debugName) {
+    fun addToGraphWithAction(debugName: String? = null): Future<*> {
+        return this.graph.action(debugName) {
             this.addToGraph()
         }
     }
@@ -216,21 +218,12 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
     }
 
     /**
-     * Calls [Graph.actionAsync] on the Graph instance associated with this [Extent].
-     */
-    @JvmOverloads
-    fun actionAsync(debugName: String? = null, thunk: ExtentThunk<ExtentContext>) {
-        val action = ExtentAction(thunk, (context ?: this) as ExtentContext, debugName)
-        graph.asyncActionHelper(action)
-    }
-
-    /**
      * Calls [Graph.action] on the Graph instance associated with this [Extent].
      */
     @JvmOverloads
-    fun action(debugName: String? = null, thunk: ExtentThunk<ExtentContext>) {
+    fun action(debugName: String? = null, thunk: ExtentThunk<ExtentContext>): Future<*> {
         val action = ExtentAction(thunk, (context ?: this) as ExtentContext, debugName)
-        graph.actionHelper(action)
+        return graph.actionHelper(action)
     }
 
     override fun toString(): String {

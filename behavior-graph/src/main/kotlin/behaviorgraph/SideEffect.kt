@@ -12,20 +12,20 @@ interface SideEffect {
     val behavior: Behavior<*>?
 }
 
-internal interface RunnableSideEffect: SideEffect {
-    fun runSideEffect()
+internal interface RunnableSideEffect: SideEffect, Runnable {
 }
 
 internal class GraphSideEffect(val thunk: Thunk, override val behavior: Behavior<*>?, override val debugName: String?):
     RunnableSideEffect {
-    override fun runSideEffect() {
+
+    override fun run() {
         thunk.invoke()
     }
 }
 
 internal class ExtentSideEffect<T: Any>(val thunk: ExtentThunk<T>, val context: T, override val behavior: Behavior<T>?, override val debugName: String? = null):
     RunnableSideEffect {
-    override fun runSideEffect() {
+    override fun run() {
         thunk.invoke(context)
     }
 }

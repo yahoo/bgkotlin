@@ -435,7 +435,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When event compvales without having removed other member of unified
         // |> Then raise an error
-        assertBehaviorGraphException {
+        assertFails {
             ext1.addToGraphWithAction()
         }
     }
@@ -451,7 +451,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When event ends without removing child
         // |> Then raise an error
-        assertBehaviorGraphException {
+        assertFails {
             ext1.removeFromGraphWithAction()
         }
     }

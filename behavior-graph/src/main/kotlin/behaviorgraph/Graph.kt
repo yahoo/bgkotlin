@@ -7,7 +7,13 @@ import behaviorgraph.Event.Companion.InitialEvent
 import java.lang.System.currentTimeMillis
 import java.util.ArrayDeque
 import java.util.PriorityQueue
+import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.math.max
+
 
 /**
  * The core construct that represents the graph of behavior and resource nodes.
@@ -21,6 +27,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
      */
     var currentEvent: Event? = null
         private set
+
     /**
      * The last completed event (ie all behaviors and side effects have run)
      */
@@ -34,15 +41,17 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     var currentBehavior: Behavior<*>? = null
         private set
     private var effects: ArrayDeque<RunnableSideEffect> = ArrayDeque()
-    private var actions: ArrayDeque<RunnableAction> = ArrayDeque()
+    internal var actions: ArrayDeque<RunnableAction> = ArrayDeque()
     private var untrackedBehaviors: MutableList<Behavior<*>> = mutableListOf()
     private var modifiedDemandBehaviors: MutableList<Behavior<*>> = mutableListOf()
     private var modifiedSupplyBehaviors: MutableList<Behavior<*>> = mutableListOf()
     private var updatedTransients: MutableList<Transient> = mutableListOf()
     private var needsOrdering: MutableList<Behavior<*>> = mutableListOf()
-    private var eventLoopState: EventLoopState? = null
+    internal var eventLoopState: EventLoopState? = null
     private var extentsAdded: MutableList<Extent<*>> = mutableListOf()
     private var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
+    private val eventMutex: ReentrantLock = ReentrantLock()
+    private val eventExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     /**
      * Validating dependencies between nodes in the graph can take some additional time.
@@ -69,7 +78,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
      * The current action may update one or more resources. Inspecting this list lets us
      * identify which action initiated the current event.
      */
-    val actionUpdates: List<Resource>?  get() = eventLoopState?.actionUpdates
+    val actionUpdates: List<Resource>? get() = eventLoopState?.actionUpdates
 
     /**
      * The action belonging to the current event if one is running.
@@ -81,32 +90,19 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
      */
     val currentSideEffect: SideEffect? get() = eventLoopState?.currentSideEffect
 
+    /**
+     * Side effects will run on the same thread of the action by default.
+     * Provide a different executor run side effects on your preferred thread (UI thread)
+     */
+    var sideEffectExecutor: Executor = object : Executor {
+        override fun execute(r: Runnable) {
+            r.run()
+        }
+    }
+
     init {
         activatedBehaviors = PriorityQueue()
         lastEvent = InitialEvent
-    }
-
-    /**
-     * Creates a new action but will not necessarily block until the passed in function is run.
-     * This is useful when coordinating side effects that lead to new actions.
-     *
-     * Example:
-     * ```kotlin
-     * graph.actionAsync { resource1.update() }
-     * afterFunction()
-     * ```
-     *
-     * - If the graph is currently running an event and we call `actionAsync` like above, the internal
-     * block of code will be put on an internal queue and `afterFunction()` will get called next.
-     * - If the graph is __not__ running an event and we call `actionAsync`, `resource`.update()` will
-     * get called, the entire graph will update and `afterFunction()` will finally run.
-     *
-     * @param debugName let's us add additional context to an action for debugging
-     */
-    @JvmOverloads
-    fun actionAsync(debugName: String? = null, thunk: Thunk) {
-        val graphAction = GraphAction(thunk, debugName)
-        asyncActionHelper(graphAction)
     }
 
     /**
@@ -122,29 +118,55 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
      * In the above example `resource1.update()` and associated event will always run before `afterFunction()`
      * is called.
      *
-     * @param debugName let's us add additional context to an action for debugging
+     * @param debugName lets us add additional context to an action for debugging
      */
     @JvmOverloads
-    fun action(debugName: String? = null, thunk: Thunk) {
+    fun action(
+        debugName: String? = null,
+        thunk: Thunk
+    ): Future<*> {
         val graphAction = GraphAction(thunk, debugName)
-        actionHelper(graphAction)
+        return actionHelper(graphAction)
     }
 
-    internal fun actionHelper(action: RunnableAction) {
-        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.Action || eventLoopState!!.phase == EventLoopPhase.Updates)) {
-            throw BehaviorGraphException("Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block.")
-        }
-        actions.addLast(action)
-        eventLoop()
-    }
-
-    internal fun asyncActionHelper(action: RunnableAction) {
-        if (eventLoopState != null && (eventLoopState!!.phase == EventLoopPhase.Action || eventLoopState!!.phase == EventLoopPhase.Updates)) {
-            throw BehaviorGraphException("Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block.")
-        }
-        actions.addLast(action)
-        if (currentEvent == null) {
-            eventLoop()
+    internal fun actionHelper(
+        action: RunnableAction
+    ): Future<*> {
+        // Check if not running or already running on same thread
+        if (eventMutex.tryLock()) {
+            try {
+                // Check that an action wasn't created from inside another action or behavior.
+                // It is easy to accidentally do an updateWithAction inside a behavior or action
+                // We want to alert the programmer to that mistake.
+                val wrongAction = eventLoopState != null &&
+                        eventLoopState!!.thread == Thread.currentThread() &&
+                        (eventLoopState!!.phase == EventLoopPhase.Action || eventLoopState!!.phase == EventLoopPhase.Updates)
+                assert(
+                    !wrongAction,
+                    { "Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block." })
+                // queue up the action and start the event loop if one isn't already running
+                actions.addLast(action)
+                if (currentEvent == null) {
+                    eventLoop()
+                }
+                // action is an implementation of Future interface
+                return action
+            } finally {
+                eventMutex.unlock()
+            }
+        } else {
+            eventExecutor.execute {
+                try {
+                    eventMutex.lock()
+                    actions.addLast(action)
+                    if (currentEvent == null) {
+                        eventLoop()
+                    }
+                } finally {
+                    eventMutex.unlock()
+                }
+            }
+            return action
         }
     }
 
@@ -182,7 +204,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                     val effect = this.effects.removeFirst()
                     eventLoopState!!.phase = EventLoopPhase.SideEffects
                     eventLoopState!!.currentSideEffect = effect
-                    effect.runSideEffect()
+                    sideEffectExecutor!!.execute(effect)
                     if (eventLoopState != null) {
                         // side effect could create a synchronous action which would create a nested event loop
                         // which would clear out any existing event loop states
@@ -192,11 +214,13 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                 }
 
                 currentEvent?.let { aCurrentEvent ->
+                    val eventAction = eventLoopState!!.action
                     clearTransients()
                     lastEvent = aCurrentEvent
                     currentEvent = null
                     eventLoopState = null
                     currentBehavior = null
+                    eventAction.complete()
                 }
 
                 if (actions.isNotEmpty()) {
@@ -210,9 +234,10 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                     action.runAction()
                     continue
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 //put graph into clean state and rethrow exception
                 currentEvent = null
+                eventLoopState?.action?.fail(e) // put exception into action's Future
                 eventLoopState = null
                 actions.clear()
                 effects.clear()
@@ -243,9 +268,9 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                 }
             }
         }
-        if (needAdding.size > 0) {
-            throw BehaviorGraphException("All extents with unified or parent lifetimes must be added during the same event. Extents=$needAdding")
-        }
+        assert(
+            needAdding.size == 0,
+            { "All extents with unified or parent lifetimes must be added during the same event. Extents=$needAdding" })
     }
 
     private fun validateRemovedExtents() {
@@ -260,9 +285,9 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                 }
             }
         }
-        if (needRemoving.size > 0) {
-            throw BehaviorGraphException("All extents with unified or child lifetimes must be removed during the same event. Extents=$needRemoving")
-        }
+        assert(
+            needRemoving.size == 0,
+            { "All extents with unified or child lifetimes must be removed during the same event. Extents=$needRemoving" })
 
         // validate removed resources are not still linked to remaining behaviors
         for (removed in extentsRemoved) {

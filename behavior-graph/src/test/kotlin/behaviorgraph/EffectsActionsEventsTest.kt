@@ -3,6 +3,7 @@
 //
 package behaviorgraph
 
+import java.util.concurrent.Future
 import kotlin.test.*
 
 class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
@@ -134,7 +135,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
     }
 
     @Test
-    fun `actions are synchronous by default`() {
+    fun `new actions run after side effects`() {
         // |> Given there is a running event
         var counter = 1
         var effectIsRun = 0
@@ -142,20 +143,25 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
         ext.addToGraphWithAction()
 
         // |> When a new action is added
+        var f: Future<*>? = null
+        var futureIsDoneBeforeSideEffect: Boolean = false
         ext.action("existing") {
             ext.sideEffect("side effect") {
-                ext.action("new") {
+                f = ext.action("new") {
                     actionIsRun = counter
                     counter += 1
                 }
+                futureIsDoneBeforeSideEffect = f!!.isDone
                 effectIsRun = counter
                 counter += 1
             }
         }
 
-        // |> Then it will be run after first event completes entirely
-        assertEquals(2, effectIsRun)
-        assertEquals(1, actionIsRun)
+        // |> Then it will be run after event completes entirely
+        assertEquals(1, effectIsRun)
+        assertEquals(2, actionIsRun)
+        assertFalse(futureIsDoneBeforeSideEffect)
+        assertTrue(f!!.isDone)
     }
 
     @Test
@@ -169,7 +175,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
         // |> When a new action is added asynchronously
         ext.action("existing") {
             ext.sideEffect("side effect") {
-                ext.actionAsync("new") {
+                ext.action("new") {
                     actionIsRun = counter
                     counter += 1
                 }
@@ -181,19 +187,6 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
         // |> Then it will be run after first event completes entirely
         assertEquals(1, effectIsRun)
         assertEquals(2, actionIsRun)
-    }
-
-    @Test
-    fun `actionAsync runs immediately if no current events`() {
-        var effectIsRun= false
-        ext.addToGraphWithAction()
-        ext.actionAsync {
-            ext.sideEffect {
-                effectIsRun = true
-            }
-        }
-
-        assertTrue(effectIsRun)
     }
 
     @Test
@@ -261,9 +254,10 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
         assertEquals(lastActionName, "1")
 
-        g.actionAsync("2") {
+        val f = g.action("2") {
             m1.update();
         }
+        f.get()
 
         assertEquals(lastActionName, "2")
 
@@ -280,7 +274,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
         assertEquals(lastActionName, "5")
 
-        ext.actionAsync("6") {
+        ext.action("6") {
             m1.update()
         }
 
@@ -360,7 +354,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `nested actions are disallowed`() {
-        assertBehaviorGraphException {
+        assertFails {
             g.action {
                 g.action {
 
@@ -377,7 +371,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
             }
         }
 
-        assertBehaviorGraphException {
+        assertFails {
             ext.addToGraphWithAction()
         }
     }

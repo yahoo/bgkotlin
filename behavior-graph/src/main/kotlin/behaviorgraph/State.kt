@@ -4,6 +4,7 @@
 package behaviorgraph
 
 import behaviorgraph.Event.Companion.InitialEvent
+import java.util.concurrent.Future
 
 /**
  * A State is a type of resource for storing information over a period of time. Its value will persist into the future until it is updated.
@@ -62,8 +63,8 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
      * Create a new action and call [update].
      */
     @JvmOverloads
-    fun updateWithAction(newValue: T, debugName: String? = null) {
-        graph.action(debugName, { update(newValue) })
+    fun updateWithAction(newValue: T, debugName: String? = null): Future<*> {
+        return graph.action(debugName, { update(newValue) })
     }
 
     /**

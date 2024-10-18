@@ -207,7 +207,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
     @Test
     fun `effects can only be run during an event`() {
         ext.addToGraphWithAction()
-        assertBehaviorGraphException {
+        assertFails {
             ext.sideEffect {  }
         }
     }
@@ -378,7 +378,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun `sideEffect in sideEffect doesnt make sense`() {
-        assertBehaviorGraphException {
+        assertFails {
             g.action {
                 g.sideEffect {
                     g.sideEffect {

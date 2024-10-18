@@ -17,14 +17,6 @@ abstract class AbstractBehaviorGraphTest
     lateinit var r_a: State<Long>
     lateinit var r_b: State<Long>
     lateinit var r_c: State<Long>
-    protected fun assertBehaviorGraphException(lambda: () -> Unit) {
-        try {
-            lambda()
-        } catch (e: BehaviorGraphException) {
-            return
-        }
-        fail("did not catch expected BehaviorGraphException")
-    }
 
     /**
      * Usage: assertExpectedException(Exception::class) {...lambda to run}

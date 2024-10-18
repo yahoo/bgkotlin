@@ -42,7 +42,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When unified after adding one extent
         // |> Then it will throw an error
-        assertBehaviorGraphException {
+        assertFails {
             g.action {
                 ext1.addToGraph()
                 ext2.unifyLifetime(ext1)
@@ -108,7 +108,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When they are added
         // |> Then it should raise an error
-        assertBehaviorGraphException {
+        assertFails {
             g.action {
                 ext1.addToGraph()
                 ext2.addToGraph()
@@ -128,7 +128,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When they are both added
         // |> Then it should raise an error
-        assertBehaviorGraphException {
+        assertFails {
             g.action {
                 ext1.addToGraph()
                 ext2.addToGraph()
@@ -165,7 +165,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When child is added first
         // |> Then it should raise an error
-        assertBehaviorGraphException {
+        assertFails {
             ext2.addToGraphWithAction()
         }
     }
@@ -234,7 +234,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When they are added
         // |> Then it should raise an error
-        assertBehaviorGraphException {
+        assertFails {
             g.action {
                 ext1.addToGraph()
                 ext2.addToGraph()
@@ -253,7 +253,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When they are added
         // |> Then it should raise an error
-        assertBehaviorGraphException {
+        assertFails {
             g.action {
                 ext1.addToGraph()
                 ext2.addToGraph()
@@ -313,7 +313,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When we try to set reverse relationship
         // |> Then raise an error
-        assertBehaviorGraphException {
+        assertFails {
             ext2.addChildLifetime(ext1)
         }
     }
@@ -329,7 +329,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When that unified tries to become parent
         // |> Then raise an error
-        assertBehaviorGraphException {
+        assertFails {
             ext3.addChildLifetime(ext1)
         }
     }
@@ -344,7 +344,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         ext3.addChildLifetime(ext1)
         // |> When parent becomes unified with child
         // |> Then raise an error
-        assertBehaviorGraphException {
+        assertFails {
             ext1.unifyLifetime(ext2)
         }
     }
@@ -472,7 +472,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When one extent is removed without fixing the dynamicDemand to that extent
         // |> Then raise an error
-        assertBehaviorGraphException {
+        assertFails {
             ext2.removeFromGraphWithAction()
         }
     }
@@ -493,7 +493,7 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
 
         // |> When one extent is removed without fixing the dynamicSupply to that extent
         // |> Then raise an error
-        assertBehaviorGraphException {
+        assertFails {
             ext2.removeFromGraphWithAction()
         }
     }

@@ -256,7 +256,7 @@ class StateTest : AbstractBehaviorGraphTest() {
 
         // |> When it is updated by the wrong behavior
         // |> Then it should throw
-        assertBehaviorGraphException { mr1.update() }
+        assertFails { mr1.update() }
     }
 
     @Test
@@ -273,14 +273,14 @@ class StateTest : AbstractBehaviorGraphTest() {
 
         // |> When it is updated by a behavior
         // |> Then it should throw
-        assertBehaviorGraphException { mr1.update() }
+        assertFails { mr1.update() }
     }
 
     @Test
     fun `check update outside event is an error`() {
         val sr1 = ext.state<Long>(0, "mr1")
         ext.addToGraphWithAction()
-        assertBehaviorGraphException { sr1.update(2) }
+        assertFails { sr1.update(2) }
     }
 
     @Test
@@ -295,7 +295,7 @@ class StateTest : AbstractBehaviorGraphTest() {
         }
         ext.addToGraphWithAction();
 
-        assertBehaviorGraphException {
+        assertFails {
             mr1.updateWithAction()
         }
     }
@@ -309,7 +309,7 @@ class StateTest : AbstractBehaviorGraphTest() {
         }
         ext.addToGraphWithAction()
 
-        assertBehaviorGraphException {
+        assertFails {
             mr1.update()
         }
     }
@@ -369,21 +369,21 @@ class StateTest : AbstractBehaviorGraphTest() {
         ext2.addToGraphWithAction();
 
         // |> Then it will fail
-        assertBehaviorGraphException {
+        assertFails {
             sr3.updateWithAction(2)
         }
 
-        assertBehaviorGraphException {
+        assertFails {
             sr4.updateWithAction(2)
         }
 
-        assertBehaviorGraphException {
+        assertFails {
             sr5.updateWithAction(2)
         }
 
         // |> And when we access a supplied resource from an action
         // |> Then it will fail
-        assertBehaviorGraphException {
+        assertFails {
             sr2.updateWithAction(2)
         }
     }

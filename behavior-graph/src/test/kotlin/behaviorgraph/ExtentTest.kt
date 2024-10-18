@@ -77,13 +77,13 @@ class ExtentTest : AbstractBehaviorGraphTest() {
     //checks below
     @Test
     fun `check cannot add extent to graph multiple times`() {
-        assertBehaviorGraphException { setupExt.addToGraphWithAction() }
+        assertFails { setupExt.addToGraphWithAction() }
     }
 
     @Test
     fun `check extent cannot be added to graph outside event`() {
         val e = TestExtentLocal(g)
-        assertBehaviorGraphException {
+        assertFails {
             e.addToGraph()
         }
     }
@@ -92,7 +92,7 @@ class ExtentTest : AbstractBehaviorGraphTest() {
     fun `check extent cannot be removed from graph outside event`() {
         val e = TestExtentLocal(g)
         e.addToGraphWithAction()
-        assertBehaviorGraphException {
+        assertFails {
             e.removeFromGraph()
         }
     }

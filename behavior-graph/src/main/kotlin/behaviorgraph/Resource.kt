@@ -32,16 +32,21 @@ open class Resource @JvmOverloads constructor(val extent: Extent<*>, var debugNa
     internal fun assertValidUpdater() {
         val currentBehavior = graph.currentBehavior
         val currentEvent = graph.currentEvent
-        if (currentBehavior == null && currentEvent == null) {
-            throw BehaviorGraphException("Resource $debugName must be updated inside a behavior or action")
+        if (!graph.processingChangesOnCurrentThread) {
+            assert(false) {
+                "Resource must be updated inside a behavior or action. \nResource=$this"
+            }
         }
         if (!graph.validateDependencies) { return }
         if (suppliedBy != null && currentBehavior != suppliedBy) {
-            throw BehaviorGraphException("Supplied resource $debugName can only be updated by its supplying behavior. CurrentBehavior = $currentBehavior")
-
+            assert(false) {
+                "Supplied resource can only be updated by its supplying behavior. \nResource=$this \nBehavior Trying to Update=$currentBehavior"
+            }
         }
         if (suppliedBy == null && currentBehavior != null) {
-            throw BehaviorGraphException("Unsupplied resource $debugName can only be updated in an action. CurrentBehavior=$currentBehavior")
+            assert(false) {
+                "Unsupplied resource can only be updated in an action. \nResource=$this \nBehaviorTrying to Update=$currentBehavior"
+            }
         }
     }
 
@@ -51,7 +56,9 @@ open class Resource @JvmOverloads constructor(val extent: Extent<*>, var debugNa
         if (graph.eventLoopState != null && graph.eventLoopState!!.thread != Thread.currentThread()) { return }
         val currentBehavior = graph.currentBehavior
         if (currentBehavior != null && currentBehavior != suppliedBy && !(currentBehavior.demands?.contains(this) ?: false)) {
-            throw BehaviorGraphException("Cannot access the value or event of a resource inside a behavior unless it is supplied or demanded.")
+            assert(false) {
+                "Cannot access the value or event of a resource inside a behavior unless it is supplied or demanded. \nResource=$this \nAccessing Behavior=$currentBehavior"
+            }
         }
     }
 

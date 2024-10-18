@@ -68,7 +68,7 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
     }
 
     override fun toString(): String {
-        return String.format("%s (tm) == %s (%s)", debugName ?: "resource", if (_happened) _happenedValue else "NA", event?.sequence)
+        return String.format("%s (tm) == %s (%s)", debugName ?: "resource", if (_happened) _happenedValue else "NA", _happenedWhen?.sequence)
     }
 
     /**

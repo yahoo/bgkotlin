@@ -106,13 +106,15 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
      * An extent must be added to the graph before any of its behaviors will run or any of its resources will be linked to.
      */
     fun addToGraph() {
-        if (graph.currentEvent != null) {
+        if (graph.processingChangesOnCurrentThread) {
             if (graph.automaticResourceNaming) {
                 nameResources()
             }
             graph.addExtent(this)
         } else {
-            throw BehaviorGraphException("addToGraph must be called within an event. Extent=$this")
+            assert(false) {
+                "addToGraph must be called within an event. \nAdding Extent=$this"
+            }
         }
     }
 
@@ -131,7 +133,7 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
      */
     @JvmOverloads
     fun removeFromGraph(strategy: ExtentRemoveStrategy = ExtentRemoveStrategy.ExtentOnly) {
-        if (graph.currentEvent != null) {
+        if (graph.processingChangesOnCurrentThread) {
             if (addedToGraphWhen != null) {
                 if (strategy == ExtentRemoveStrategy.ExtentOnly || this.lifetime == null) {
                     graph.removeExtent(this)
@@ -140,7 +142,9 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
                 }
             }
         } else {
-            throw BehaviorGraphException("removeFromGraph must be called within an event. Extent=$this")
+            assert(false) {
+                "removeFromGraph must be called within an event. \nRemoving Extent=$this"
+            }
         }
     }
 
@@ -227,7 +231,7 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
     }
 
     override fun toString(): String {
-        return graph.toString()
+        return super.toString() + "\n" + graph.toString()
     }
 
 }

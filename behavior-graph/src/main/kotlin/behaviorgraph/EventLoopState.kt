@@ -8,4 +8,6 @@ internal data class EventLoopState(val action: RunnableAction, val actionUpdates
         }
         return rows.joinToString("\n")
     }
+
+    val runningOnCurrentThread: Boolean get() = this.thread == Thread.currentThread()
 }

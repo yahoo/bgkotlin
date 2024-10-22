@@ -4,5 +4,7 @@ internal enum class EventLoopPhase {
     Queued,
     Action,
     Updates,
-    SideEffects
+    SideEffects;
+
+    val processingChanges: Boolean get() = (this == Action || this == Updates)
 }

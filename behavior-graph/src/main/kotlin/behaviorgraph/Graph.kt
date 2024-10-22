@@ -52,6 +52,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     private var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
     private val eventMutex: ReentrantLock = ReentrantLock()
     private val eventExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    internal val processingChangesOnCurrentThread: Boolean get() = eventLoopState?.runningOnCurrentThread == true && eventLoopState?.phase?.processingChanges == true
 
     /**
      * Validating dependencies between nodes in the graph can take some additional time.
@@ -294,11 +295,15 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             for (resource in removed.resources) {
                 for (demandedBy in resource.subsequents) {
                     if (demandedBy.extent.addedToGraphWhen != null) {
-                        throw BehaviorGraphException("Remaining behaviors must remove dynamicDemands to removed resources. Behavior=$demandedBy Resource=$resource")
+                        assert(false) {
+                            "Remaining behaviors should remove dynamicDemands to removed resources. \nRemaining Behavior=$demandedBy \nRemoved Resource=$resource"
+                        }
                     }
                 }
                 if (resource.suppliedBy != null && resource.suppliedBy!!.extent.addedToGraphWhen != null) {
-                    throw BehaviorGraphException("Remaining behaviors must remove dynamicSupplies to removed resources. Remaining Behavior=${resource.suppliedBy} Removed resource=$resource")
+                    assert(false) {
+                        "Remaining behaviors should remove dynamicSupplies to removed resources. \nRemaining Behavior=${resource.suppliedBy} \nRemoved resource=$resource"
+                    }
                 }
             }
         }
@@ -360,9 +365,15 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
 
     internal fun sideEffectHelper(sideEffect: RunnableSideEffect) {
         if (this.currentEvent == null) {
-            throw BehaviorGraphException("Effects can only be added during an event loop.")
+            assert(false) { "Effects can only be added during an event loop." }
+        } else if (eventLoopState?.runningOnCurrentThread != true) {
+            assert(false) {
+                "You've created a side effect from an alternate thread while another is running. Side effects should be created inside behaviors only."
+            }
         } else if (eventLoopState!!.phase == EventLoopPhase.SideEffects) {
-            throw BehaviorGraphException("Nested side effects are disallowed.")
+            assert(false) {
+                "You've created a side effect inside another side effect. Side effects should be created inside behaviors. Is this a mistake?"
+            }
         } else {
             this.effects.addLast(sideEffect)
         }
@@ -382,7 +393,9 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             if (validateLifetimes) {
                 behavior.untrackedSupplies?.forEach { existingSupply ->
                     if (!behavior.extent.hasCompatibleLifetime(existingSupply.extent)) {
-                        throw BehaviorGraphException("Static supplies can only be with extents with the unified or parent lifetimes. Supply=$existingSupply")
+                        assert(false) {
+                            "Behavior can only supply resources on extents with the unified or parent lifetimes. \nSupplying Behavior=$behavior \nStatic Supply=$existingSupply"
+                        }
                     }
                 }
             }
@@ -400,17 +413,16 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             behavior.supplies = allUntrackedSupplies
             behavior.supplies?.forEach { newSupply: Resource ->
                 if (newSupply.suppliedBy != null && newSupply.suppliedBy !== behavior) {
-                    throw ResourceCannotBeSuppliedByMoreThanOneBehaviorException(
-                        "Resource cannot be supplied by more than one behavior",
-                        newSupply,
-                        behavior
-                    )
+                    assert(false) {
+                        "Resource cannot be supplied by more than one behavior. Supplied Resource=$newSupply \nSupplying Behavior=$newSupply.suppliedBy \nAdditional Behavior=$behavior"
+                    }
+                    // with asserts off, will just switch to new supplying behavior
                 }
                 newSupply.suppliedBy = behavior
             }
 
             // technically this doesn't need reordering but its subsequents will
-            // setting this to reorder will also adjust its subsequents if necessary
+            // set this to reorder will also adjust its subsequents if necessary
             // in the sortDFS code
             if (behavior.orderingState != OrderingState.NeedsOrdering) {
                 behavior.orderingState = OrderingState.NeedsOrdering
@@ -425,7 +437,10 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             if (validateLifetimes) {
                 behavior.untrackedDemands?.forEach { demand ->
                     if (!behavior.extent.hasCompatibleLifetime(demand.resource.extent)) {
-                        throw BehaviorGraphException("Static demands can only be assigned across extents with a unified or parent lifetime.")
+                        assert(false) {
+                            "Static demands can only be assigned across extents with a unified or parent lifetime. Demand=$demand \nDemanding Behavior=$behavior"
+                        }
+                        // disabled asserts will just allow incompatible lifetimes
                     }
                 }
             }
@@ -452,11 +467,9 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             for (link in allUntrackedDemands) {
                 val untrackedDemand = link.resource
                 if (untrackedDemand.extent.addedToGraphWhen == null) {
-                    throw AllDemandsMustBeAddedToTheGraphExceptions(
-                        "All demands must be added to the graph.",
-                        behavior,
-                        untrackedDemand
-                    )
+                    assert(false) {
+                        "Cannot demand a resource that hasn't been added to the graph. Demanding behavior=$behavior \nDemand=$untrackedDemand"
+                    }
                 }
                 if (behavior.demands == null || !behavior.demands!!.contains(untrackedDemand)) {
                     if (addedDemands == null) {
@@ -560,10 +573,13 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
 
     private fun sortDFS(behavior: Behavior<*>, needsReheap: MutableList<Boolean>) {
         if (behavior.orderingState == OrderingState.Ordering) {
-            throw BehaviorDependencyCycleDetectedException(
-                "Behavior dependency cycle detected.", behavior,
-                debugCycleForBehavior(behavior)
-            )
+            assert(false) {
+                val cycleString = debugCycleForBehavior(behavior)
+                "Behavior dependency cycle detected. Behavior=$behavior \nCycle=\n$cycleString"
+            }
+            // give up on this path if we fail the assertion. Essentially ordering is broken.
+            behavior.orderingState = OrderingState.Ordered
+            return
         }
 
         if (behavior.orderingState == OrderingState.Clearing) {
@@ -629,9 +645,15 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
 
     internal fun updateDemands(behavior: Behavior<*>, newDemands: List<Demandable>?) {
         if (behavior.extent.addedToGraphWhen == null) {
-            throw BehaviorGraphException("Behavior must belong to graph before updating demands: $behavior")
-        } else if (currentEvent == null) {
-            throw BehaviorGraphException("Demands can only be updated during an event loop. Behavior=$behavior")
+            assert(false) {
+                "Behavior must belong to graph before updating demands. \nDemanding Behavior=$behavior"
+            }
+            return
+        } else if (!processingChangesOnCurrentThread) {
+            assert(false) {
+                "Demands can only be updated during an event loop. \nDemanding Behavior=$behavior"
+            }
+            return
         }
         behavior.untrackedDynamicDemands = newDemands
         modifiedDemandBehaviors.add(behavior)
@@ -639,9 +661,13 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
 
     internal fun updateSupplies(behavior: Behavior<*>, newSupplies: List<Resource>?) {
         if (behavior.extent.addedToGraphWhen == null) {
-            throw BehaviorGraphException("Behavior must belong to graph before updating supplies. Behavior=$behavior")
-        } else if (currentEvent == null) {
-            throw BehaviorGraphException("Supplies can only be updated during an event loop. Behavior=$behavior")
+            assert(false) {
+                "Behavior must belong to graph before updating supplies. \nDemanding Behavior=$behavior"
+            }
+        } else if (!processingChangesOnCurrentThread) {
+            assert(false) {
+                "Supplies can only be updated during an event loop. \nDemanding Behavior=$behavior"
+            }
         }
         behavior.untrackedDynamicSupplies = newSupplies
         modifiedSupplyBehaviors.add(behavior)
@@ -682,10 +708,15 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
 
     internal fun addExtent(extent: Extent<*>) {
         if (extent.addedToGraphWhen != null) {
-            throw BehaviorGraphException("Extent $extent has already been added to the graph: ${extent.graph}")
+            assert(false) {
+                "Extent $extent has already been added to the graph: ${extent.graph}"
+            }
+            return
         }
-        if (currentEvent == null) {
-            throw BehaviorGraphException("Extents can only be added during an event.")
+        if (!processingChangesOnCurrentThread) {
+            assert(false) {
+                "Extents can only be added inside an action or behavior running on the current thread. \nExtent=$extent"
+            }
         }
 
         if (validateLifetimes) {
@@ -696,7 +727,10 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             }
             val refParent = extent.lifetime?.parent?.get()
             if (refParent != null && refParent.addedToGraphWhen == null) {
-                throw BehaviorGraphException("Extent with child lifetime must be added after parent.")
+                assert(false) {
+                    "Extent with child lifetime must be added after parent."
+                }
+                // disabled asserts will mean we can still add it (just no lifetime tracking)
             }
         }
 
@@ -709,8 +743,11 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     }
 
     internal fun removeExtent(extent: Extent<*>) {
-        if (currentEvent == null) {
-            throw BehaviorGraphException("Extents can only be removed during an event.")
+        if (!processingChangesOnCurrentThread) {
+            assert(false) {
+                "Extents can only be removed during an event. \nExtent=$extent"
+            }
+            return
         }
         extentsRemoved.add(extent)
         for (behavior in extent.behaviors) {

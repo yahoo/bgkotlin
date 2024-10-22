@@ -442,7 +442,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
         // |> When behavior activated before relink is activated
         // |> Then action should throw because behavior does not supply that resource
-        assertBehaviorGraphException {
+        assertFails {
             m1.update()  // cannot update unsupplied resource
         }
 
@@ -628,7 +628,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         ext2.behavior().dynamicDemands(ext2.didAdd) { _, demands -> demands.add(r1) }.runs {}
         // |> When that extent is added
         // |> Then it should raise an error
-        assertBehaviorGraphException {
+        assertFails {
             ext2.addToGraphWithAction()
         }
     }

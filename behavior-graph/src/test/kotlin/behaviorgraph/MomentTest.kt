@@ -119,7 +119,7 @@ class MomentTest : AbstractBehaviorGraphTest() {
         val mr1 = ext.moment("mr1")
         // |> When it is updated
         // |> Then an error is raised
-        assertBehaviorGraphException { mr1.update() }
+        assertFails { mr1.update() }
     }
 
     @Test
@@ -141,7 +141,7 @@ class MomentTest : AbstractBehaviorGraphTest() {
 
         // |> When it is updated by the wrong behavior
         // |> Then it should throw
-        assertBehaviorGraphException { mr1.update() }
+        assertFails { mr1.update() }
     }
 
     @Test
@@ -161,14 +161,14 @@ class MomentTest : AbstractBehaviorGraphTest() {
 
         // |> When it is updated by the wrong behavior
         // |> Then it should throw
-        assertBehaviorGraphException { mr1.update() }
+        assertFails { mr1.update() }
     }
 
     @Test
     fun `check moment happens outside event loop is an error`() {
         val mr1 = ext.moment("mr1")
         ext.addToGraphWithAction()
-        assertBehaviorGraphException { mr1.update() }
+        assertFails { mr1.update() }
     }
 
     @Test
@@ -221,19 +221,19 @@ class MomentTest : AbstractBehaviorGraphTest() {
         ext2.addToGraphWithAction()
 
         // |> Then it will fail
-        assertBehaviorGraphException {
+        assertFails {
             mr3.updateWithAction()
         }
-        assertBehaviorGraphException {
+        assertFails {
             mr4.updateWithAction()
         }
-        assertBehaviorGraphException {
+        assertFails {
             mr5.updateWithAction()
         }
 
         // |> And when we access a supplied resource from an action
         // |> Then it will fail
-        assertBehaviorGraphException {
+        assertFails {
             mr2.updateWithAction(2)
         }
     }

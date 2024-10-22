@@ -23,8 +23,10 @@ internal class ExtentLifetime(
 
     fun unify(extent: Extent<*>) {
         if (extent.addedToGraphWhen != null) {
-            val err = SameLifetimeMustBeEstablishedBeforeAddingToGraph(extent)
-            throw err
+            assert(false) {
+                "Same lifetime relationship must be established before adding any extent to graph. \nExtent=$extent"
+            }
+            // disabled asserts just allows this
         }
         if (extent.lifetime != null) {
             // merge existing lifetimes and children into one lifetime heirarchy
@@ -55,8 +57,10 @@ internal class ExtentLifetime(
         while (myLifetime != null) {
             // check up the chain of parents to prevent circular lifetime
             if (myLifetime == lifetime) {
-                val err = BehaviorGraphException("Extent lifetime cannot be a child of itself")
-                throw err
+                assert(false) {
+                    "Extent lifetime cannot be a child of itself."
+                }
+                return
             }
             myLifetime = myLifetime.parent?.get()
         }

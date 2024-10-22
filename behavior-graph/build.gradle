@@ -42,7 +42,7 @@ import com.vanniktech.maven.publish.SonatypeHost
 mavenPublishing {
     configure(new KotlinJvm(new JavadocJar.Dokka("dokkaHtml"), true))
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-    coordinates("com.yahoo.behaviorgraph", "bgjvm", "0.10.0")
+    coordinates("com.yahoo.behaviorgraph", "bgjvm", "0.11.0")
     pom {
         name = 'Behavior Graph'
         description = 'Behavior Graph lets you build your programs out of small, easily understood pieces in a way that lets the computer do more of the work for you.'

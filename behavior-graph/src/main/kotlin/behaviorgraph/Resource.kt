@@ -61,8 +61,4 @@ open class Resource @JvmOverloads constructor(val extent: Extent<*>, var debugNa
             }
         }
     }
-
-    override fun toString(): String {
-        return String.format("%s (r)", debugName ?: "resource")
-    }
 }

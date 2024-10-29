@@ -139,7 +139,7 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
     }
 
     override fun toString(): String {
-        return String.format("%s (s) == %s (%s)", debugName ?: "resource", currentState.value, currentState.event.sequence)
+        return String.format("%s %s == %s (%s)", debugName ?: "", super.toString(), currentState.value, currentState.event.sequence)
     }
 
     private data class StateHistory<T>(val value: T, val event: Event)

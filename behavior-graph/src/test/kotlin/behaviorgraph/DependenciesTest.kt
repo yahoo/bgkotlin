@@ -102,4 +102,44 @@ class DependenciesTest : AbstractBehaviorGraphTest() {
 
         assertEquals(33L, parent_r2.value)
     }
+
+    @Test
+    fun toStringWorksInBehaviorsThatDontDemandMentionedResources() {
+        // We want to be able to debug things
+        // So toString methods shouldn't trigger any demand verification checks
+
+        val s1 = ext.state(0)
+        val m1 = ext.moment()
+        val tm1 = ext.typedMoment<Int>()
+        val m2 = ext.moment()
+
+        ext.behavior()
+            .demands(s1)
+            .supplies(m2)
+            .performs {
+                m2.update()
+            }
+
+        var s1_string = ""
+        var m1_string = ""
+        var tm1_string = ""
+        ext.behavior()
+            .demands(m2)
+            .performs {
+                s1_string = s1.toString()
+                m1_string = m1.toString()
+                tm1_string = tm1.toString()
+            }
+
+        ext.addToGraphWithAction()
+        ext.action {
+            s1.update(1)
+            m1.update()
+            tm1.update(1)
+        }
+
+        assert(s1_string.isNotEmpty())
+        assert(m1_string.isNotEmpty())
+        assert(tm1_string.isNotEmpty())
+    }
 }

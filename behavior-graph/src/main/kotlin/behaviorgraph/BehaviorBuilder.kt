@@ -163,13 +163,13 @@ class BehaviorBuilder<T: Any>(
             val demands: MutableList<Demandable> = mutableListOf()
             dynamicDemandSwitches?.let { demands.addAll(it) }
             if (dynamicDemandRelinkingOrder == RelinkingOrder.RelinkingOrderPrior) {
-                supplies = listOf(dynamicDemandResource!!)
+                dynamicDemandResource?.let { supplies = listOf(it) }
             } else {
-                demands.add(dynamicDemandResource!!)
+                dynamicDemandResource?.let { demands.add(it) }
             }
             Behavior(extent, demands, supplies) {
                 val mutableListOfDemands = mutableListOf<Demandable?>()
-                dynamicDemandLinks!!.invoke(it, mutableListOfDemands)
+                dynamicDemandLinks?.invoke(it, mutableListOfDemands)
                 mainBehavior.setDynamicDemands(mutableListOfDemands)
             }
         }
@@ -179,13 +179,13 @@ class BehaviorBuilder<T: Any>(
             val demands: MutableList<Demandable> = mutableListOf()
             dynamicSupplySwitches?.let { demands.addAll(it) }
             if (dynamicSupplyRelinkingOrder == RelinkingOrder.RelinkingOrderPrior) {
-                supplies = listOf(dynamicSupplyResource!!)
+                dynamicSupplyResource?.let { supplies = listOf(dynamicSupplyResource) }
             } else {
-                demands.add(dynamicSupplyResource!!)
+                dynamicSupplyResource?.let { demands.add(dynamicSupplyResource) }
             }
             Behavior(extent, demands, supplies) {
                 val mutableListOfSupplies = mutableListOf<Resource?>()
-                dynamicSupplyLinks!!.invoke(it, mutableListOfSupplies)
+                dynamicSupplyLinks?.invoke(it, mutableListOfSupplies)
                 mainBehavior.setDynamicSupplies(mutableListOfSupplies)
             }
         }

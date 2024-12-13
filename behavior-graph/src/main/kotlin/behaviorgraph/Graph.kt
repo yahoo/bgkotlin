@@ -139,12 +139,13 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                 // Check that an action wasn't created from inside another action or behavior.
                 // It is easy to accidentally do an updateWithAction inside a behavior or action
                 // We want to alert the programmer to that mistake.
-                val wrongAction = eventLoopState != null &&
-                        eventLoopState!!.thread == Thread.currentThread() &&
-                        (eventLoopState!!.phase == EventLoopPhase.Action || eventLoopState!!.phase == EventLoopPhase.Updates)
-                assert(
-                    !wrongAction,
-                    { "Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block." })
+                eventLoopState?.let {
+                    val wrongAction = it.thread == Thread.currentThread() &&
+                            (it.phase == EventLoopPhase.Action || it.phase == EventLoopPhase.Updates)
+                    assert(
+                        !wrongAction,
+                        { "Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block." })
+                }
                 // queue up the action and start the event loop if one isn't already running
                 actions.addLast(action)
                 if (currentEvent == null) {
@@ -180,8 +181,8 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                     modifiedSupplyBehaviors.size > 0 ||
                     needsOrdering.size > 0
                 ) {
-                    eventLoopState!!.phase = EventLoopPhase.Updates
-                    val sequence = this.currentEvent!!.sequence
+                    eventLoopState?.phase = EventLoopPhase.Updates
+                    val sequence: Long = this.currentEvent?.sequence ?: 0
                     addUntrackedBehaviors()
                     addUntrackedSupplies()
                     addUntrackedDemands(sequence)
@@ -203,9 +204,9 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                 }
                 if (effects.isNotEmpty()) {
                     val effect = this.effects.removeFirst()
-                    eventLoopState!!.phase = EventLoopPhase.SideEffects
-                    eventLoopState!!.currentSideEffect = effect
-                    sideEffectExecutor!!.execute(effect)
+                    eventLoopState?.phase = EventLoopPhase.SideEffects
+                    eventLoopState?.currentSideEffect = effect
+                    sideEffectExecutor.execute(effect)
                     if (eventLoopState != null) {
                         // side effect could create a synchronous action which would create a nested event loop
                         // which would clear out any existing event loop states
@@ -215,13 +216,13 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                 }
 
                 currentEvent?.let { aCurrentEvent ->
-                    val eventAction = eventLoopState!!.action
+                    val eventAction = eventLoopState?.action
                     clearTransients()
                     lastEvent = aCurrentEvent
                     currentEvent = null
                     eventLoopState = null
                     currentBehavior = null
-                    eventAction.complete()
+                    eventAction?.complete()
                 }
 
                 if (actions.isNotEmpty()) {
@@ -231,7 +232,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                     )
                     this.currentEvent = newEvent
                     eventLoopState = EventLoopState(action)
-                    eventLoopState!!.phase = EventLoopPhase.Action
+                    eventLoopState?.phase = EventLoopPhase.Action
                     action.runAction()
                     continue
                 }
@@ -262,7 +263,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         val needAdding: MutableSet<Extent<*>> = mutableSetOf()
         for (added in extentsAdded) {
             if (added.lifetime != null) {
-                for (ext in added.lifetime!!.getAllContainingExtents()) {
+                for (ext in added.lifetime?.getAllContainingExtents() ?: listOf()) {
                     if (ext.addedToGraphWhen == null) {
                         needAdding.add(ext)
                     }
@@ -279,7 +280,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         val needRemoving: MutableSet<Extent<*>> = mutableSetOf()
         for (removed in extentsRemoved) {
             if (removed.lifetime != null) {
-                for (ext in removed.lifetime!!.getAllContainedExtents()) {
+                for (ext in removed.lifetime?.getAllContainedExtents() ?: listOf()) {
                     if (ext.addedToGraphWhen != null) {
                         needRemoving.add(ext)
                     }
@@ -300,7 +301,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                         }
                     }
                 }
-                if (resource.suppliedBy != null && resource.suppliedBy!!.extent.addedToGraphWhen != null) {
+                if (resource.suppliedBy != null && resource.suppliedBy?.extent?.addedToGraphWhen != null) {
                     assert(false) {
                         "Remaining behaviors should remove dynamicSupplies to removed resources. \nRemaining Behavior=${resource.suppliedBy} \nRemoved resource=$resource"
                     }
@@ -322,12 +323,12 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
 
     internal fun resourceTouched(resource: Resource) {
         this.currentEvent?.let { aCurrentEvent ->
-            if (eventLoopState != null && eventLoopState!!.phase == EventLoopPhase.Action) {
-                eventLoopState!!.actionUpdates.add(resource)
+            if (eventLoopState != null && eventLoopState?.phase == EventLoopPhase.Action) {
+                eventLoopState?.actionUpdates?.add(resource)
             }
             for (subsequent in resource.subsequents) {
                 val isOrderingDemand =
-                    subsequent.orderingDemands != null && subsequent.orderingDemands!!.contains(resource)
+                    subsequent.orderingDemands != null && subsequent.orderingDemands?.contains(resource) ?: false
                 if (!isOrderingDemand) {
                     activateBehavior(subsequent, aCurrentEvent.sequence)
                 }
@@ -336,7 +337,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     }
 
     private fun activateBehavior(behavior: Behavior<*>, sequence: Long) {
-        if (behavior.enqueuedWhen == null || behavior.enqueuedWhen!! < sequence) {
+        if (behavior.enqueuedWhen == null || (behavior.enqueuedWhen ?: 0) < sequence) {
             behavior.enqueuedWhen = sequence
             activatedBehaviors.add(behavior)
         }
@@ -370,7 +371,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             assert(false) {
                 "You've created a side effect from an alternate thread while another is running. Side effects should be created inside behaviors only."
             }
-        } else if (eventLoopState!!.phase == EventLoopPhase.SideEffects) {
+        } else if (eventLoopState?.phase == EventLoopPhase.SideEffects) {
             assert(false) {
                 "You've created a side effect inside another side effect. Side effects should be created inside behaviors. Is this a mistake?"
             }
@@ -401,13 +402,12 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             }
 
             val allUntrackedSupplies: MutableSet<Resource> = mutableSetOf()
-            if (behavior.untrackedSupplies != null) {
-                allUntrackedSupplies.addAll(behavior.untrackedSupplies!!)
+            behavior.untrackedSupplies?.let {
+                allUntrackedSupplies.addAll(it)
             }
-            if (behavior.untrackedDynamicSupplies != null) {
-                allUntrackedSupplies.addAll(behavior.untrackedDynamicSupplies!!)
+            behavior.untrackedDynamicSupplies?.let {
+                allUntrackedSupplies.addAll(it)
             }
-
             behavior.supplies?.forEach { it.suppliedBy = null }
 
             behavior.supplies = allUntrackedSupplies
@@ -446,11 +446,11 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             }
 
             val allUntrackedDemands: MutableSet<Demandable> = mutableSetOf()
-            if (behavior.untrackedDemands != null) {
-                allUntrackedDemands.addAll(behavior.untrackedDemands!!)
+            behavior.untrackedDemands?.let {
+                allUntrackedDemands.addAll(it)
             }
-            if (behavior.untrackedDynamicDemands != null) {
-                allUntrackedDemands.addAll(behavior.untrackedDynamicDemands!!)
+            behavior.untrackedDynamicDemands?.let {
+                allUntrackedDemands.addAll(it)
             }
 
             var removedDemands: MutableList<Resource>? = null
@@ -459,7 +459,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                     if (removedDemands == null) {
                         removedDemands = mutableListOf()
                     }
-                    removedDemands!!.add(demand)
+                    removedDemands?.add(demand)
                 }
             }
 
@@ -471,7 +471,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                         "Cannot demand a resource that hasn't been added to the graph. Demanding behavior=$behavior \nDemand=$untrackedDemand"
                     }
                 }
-                if (behavior.demands == null || !behavior.demands!!.contains(untrackedDemand)) {
+                if (behavior.demands == null || !(behavior.demands?.contains(untrackedDemand) ?: false)) {
                     if (addedDemands == null) {
                         addedDemands = mutableListOf()
                     }
@@ -502,12 +502,12 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                 if (newDemands == null) {
                     newDemands = mutableSetOf()
                 }
-                newDemands!!.add(link.resource)
+                newDemands?.add(link.resource)
                 if (link.type == LinkType.Order) {
                     if (orderingDemands == null) {
                         orderingDemands = mutableSetOf()
                     }
-                    orderingDemands!!.add(link.resource)
+                    orderingDemands?.add(link.resource)
                 }
             }
             behavior.demands = newDemands
@@ -721,8 +721,8 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
 
         if (validateLifetimes) {
             if (extent.lifetime != null) {
-                if (extent.lifetime!!.addedToGraphWhen == null) {
-                    extent.lifetime!!.addedToGraphWhen = currentEvent!!.sequence
+                if (extent.lifetime?.addedToGraphWhen == null) {
+                    extent.lifetime?.addedToGraphWhen = currentEvent?.sequence
                 }
             }
             val refParent = extent.lifetime?.parent?.get()
@@ -734,9 +734,9 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             }
         }
 
-        extent.addedToGraphWhen = currentEvent!!.sequence
+        extent.addedToGraphWhen = currentEvent?.sequence
         extentsAdded.add(extent)
-        activateBehavior(extent.didAddBehavior, currentEvent!!.sequence)
+        activateBehavior(extent.didAddBehavior, currentEvent?.sequence ?: 0)
         for (behavior in extent.behaviors) {
             addBehavior(behavior)
         }
@@ -751,7 +751,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         }
         extentsRemoved.add(extent)
         for (behavior in extent.behaviors) {
-            removeBehavior(behavior, currentEvent!!.sequence)
+            removeBehavior(behavior, currentEvent?.sequence ?: 0)
         }
         extent.addedToGraphWhen = null
     }
@@ -759,16 +759,16 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     override fun toString(): String {
         return buildString {
             if (currentEvent != null) {
-                append(String.format("Current Event: %d\n", currentEvent!!.sequence))
+                append(String.format("Current Event: %d\n", currentEvent?.sequence ?: 0))
             } else {
                 append("No current event")
             }
-            if (eventLoopState != null) {
-                append(eventLoopState!!.toString())
+            eventLoopState?.let {
+                append(it.toString())
                 append("\n")
             }
-            if (currentBehavior != null) {
-                append(currentBehavior!!.toString())
+            currentBehavior?.let {
+                append(it.toString())
             }
         }
     }

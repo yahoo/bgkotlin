@@ -46,8 +46,7 @@ internal class ExtentLifetime(
     }
 
     fun addChild(extent: Extent<*>) {
-        val thisLifetime = extent.lifetime
-        if (thisLifetime == null) {
+        if (extent.lifetime == null) {
             extent.lifetime = ExtentLifetime(extent)
         }
         extent.lifetime?.let {

@@ -31,11 +31,11 @@ internal class ExtentLifetime(
         if (extent.lifetime != null) {
             // merge existing lifetimes and children into one lifetime heirarchy
             // move children first
-            extent.lifetime!!.children?.forEach {(lifetime, _) ->
+            extent.lifetime?.children?.forEach {(lifetime, _) ->
                 addChildLifetime(lifetime)
             }
             // then make any extents in other lifetime part of this one
-            extent.lifetime!!.extents.forEach { (it, _) ->
+            extent.lifetime?.extents?.forEach { (it, _) ->
                 it.lifetime = this
                 extents[it] = true
             }
@@ -49,7 +49,9 @@ internal class ExtentLifetime(
         if (extent.lifetime == null) {
             extent.lifetime = ExtentLifetime(extent)
         }
-        addChildLifetime(extent.lifetime!!)
+        extent.lifetime?.let {
+            addChildLifetime(it)
+        }
     }
 
     fun addChildLifetime(lifetime: ExtentLifetime) {
@@ -77,9 +79,10 @@ internal class ExtentLifetime(
             return true
         } else if (lifetime != null) {
             // parents
-            if (parent != null) {
+            val thisParent = parent
+            if (thisParent != null) {
                 // parent is a weak reference so we get it here
-                val refParent = parent!!.get()
+                val refParent = thisParent.get()
                 if (refParent != null) {
                     return refParent.hasCompatibleLifetime(lifetime)
                 }

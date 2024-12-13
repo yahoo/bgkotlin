@@ -61,7 +61,7 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
         if (lifetime == null) {
             lifetime = ExtentLifetime(this)
         }
-        lifetime!!.unify(extent)
+        lifetime?.unify(extent)
     }
 
     /**
@@ -71,14 +71,14 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
         if (this.lifetime == null) {
             lifetime = ExtentLifetime(this)
         }
-        lifetime!!.addChild(extent)
+        lifetime?.addChild(extent)
     }
 
     internal fun hasCompatibleLifetime(extent: Extent<*>): Boolean {
         if (this == extent) {
             return true
         } else if (lifetime != null) {
-            return lifetime!!.hasCompatibleLifetime(extent.lifetime)
+            return lifetime?.hasCompatibleLifetime(extent.lifetime) ?: false
         } else {
             return false
         }

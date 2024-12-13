@@ -88,12 +88,15 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
      */
     fun updateForce(newValue: T) {
         assertValidUpdater()
-        if (graph.currentEvent != null && currentState.event.sequence < graph.currentEvent!!.sequence) {
+        val thisSequence = graph.currentEvent?.sequence ?: 0
+        if (graph.currentEvent != null && currentState.event.sequence < thisSequence) {
             // this check prevents updating priorState if we are updated multiple times in same behavior
             priorStateDuringEvent = currentState
         }
 
-        currentState = StateHistory(newValue, this.graph.currentEvent!!)
+        this.graph.currentEvent?.let {
+            currentState = StateHistory(newValue, it)
+        }
         this.graph.resourceTouched(this)
         this.graph.trackTransient(this)
     }
@@ -124,7 +127,7 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
      */
     fun justUpdatedFrom(fromValue: T): Boolean {
         return justUpdated &&
-            (priorStateDuringEvent!!.value == fromValue)
+            (priorStateDuringEvent?.value == fromValue)
     }
 
     /**

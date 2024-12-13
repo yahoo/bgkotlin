@@ -179,9 +179,9 @@ class BehaviorBuilder<T: Any>(
             val demands: MutableList<Demandable> = mutableListOf()
             dynamicSupplySwitches?.let { demands.addAll(it) }
             if (dynamicSupplyRelinkingOrder == RelinkingOrder.RelinkingOrderPrior) {
-                dynamicSupplyResource?.let { supplies = listOf(dynamicSupplyResource) }
+                dynamicSupplyResource?.let { supplies = listOf(it) }
             } else {
-                dynamicSupplyResource?.let { demands.add(dynamicSupplyResource) }
+                dynamicSupplyResource?.let { demands.add(it) }
             }
             Behavior(extent, demands, supplies) {
                 val mutableListOfSupplies = mutableListOf<Resource?>()

@@ -3,6 +3,10 @@
 //
 package behaviorgraph
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.future.asCompletableFuture
+import kotlinx.coroutines.job
 import java.util.concurrent.Future
 
 /**
@@ -96,7 +100,7 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
      * Creates an Action on the graph and calls [addToGraph]
      */
     @JvmOverloads
-    fun addToGraphWithAction(debugName: String? = null): Future<*> {
+    fun addToGraphWithAction(debugName: String? = null): Job {
         return this.graph.action(debugName) {
             this.addToGraph()
         }
@@ -216,8 +220,8 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
      * Calls [Graph.sideEffect] on the Graph instance associated with this [Extent].
      */
     @JvmOverloads
-    fun sideEffect(debugName: String? = null, thunk: ExtentThunk<ExtentContext>) {
-        val sideEffect = ExtentSideEffect(thunk, (context ?: this) as ExtentContext, this.graph.currentBehavior as Behavior<ExtentContext>?, debugName)
+    fun sideEffect(debugName: String? = null, dispatcher: CoroutineDispatcher? = null, thunk: ExtentThunk<ExtentContext>) {
+        val sideEffect = ExtentSideEffect(thunk, (context ?: this) as ExtentContext, this.graph.currentBehavior as Behavior<ExtentContext>?, debugName, dispatcher)
         graph.sideEffectHelper(sideEffect)
     }
 
@@ -225,9 +229,9 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
      * Calls [Graph.action] on the Graph instance associated with this [Extent].
      */
     @JvmOverloads
-    fun action(debugName: String? = null, thunk: ExtentThunk<ExtentContext>): Future<*> {
+    fun action(debugName: String? = null, thunk: ExtentThunk<ExtentContext>): Job {
         val action = ExtentAction(thunk, (context ?: this) as ExtentContext, debugName)
-        return graph.actionHelper(action)
+        return graph.actionInternal(action).job
     }
 
     override fun toString(): String {

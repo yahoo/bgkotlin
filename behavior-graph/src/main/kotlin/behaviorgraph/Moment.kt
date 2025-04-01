@@ -3,6 +3,7 @@
 //
 package behaviorgraph
 
+import kotlinx.coroutines.Job
 import java.util.concurrent.Future
 
 /**
@@ -55,7 +56,7 @@ class Moment @JvmOverloads constructor(extent: Extent<*>, debugName: String? = n
      * Create a new action and call [update].
      */
     @JvmOverloads
-    fun updateWithAction(debugName: String? = null): Future<*> {
+    fun updateWithAction(debugName: String? = null): Job {
         return graph.action(debugName) {
             update()
         }

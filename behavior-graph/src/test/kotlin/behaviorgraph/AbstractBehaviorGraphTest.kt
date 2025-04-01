@@ -3,14 +3,16 @@
 //
 package behaviorgraph
 
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import java.lang.reflect.Field
 import kotlin.test.*
 import kotlin.reflect.KClass
-
 abstract class AbstractBehaviorGraphTest
 {
     open class TestExtent(g: Graph) : Extent<TestExtent>(g)
 
+    var testDispatcher: TestDispatcher = UnconfinedTestDispatcher()
     lateinit var g: Graph
     protected lateinit var setupExt: TestExtent
     lateinit var ext: TestExtent
@@ -52,6 +54,7 @@ abstract class AbstractBehaviorGraphTest
     @org.junit.Before
     open fun setUp() {
         g = Graph()
+        g.defaultSideEffectDispatcher = testDispatcher
         setupExt = TestExtent(g)
         ext = TestExtent(g)
         r_a = setupExt.state(0, "r_a")

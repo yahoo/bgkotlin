@@ -4,6 +4,7 @@
 package behaviorgraph
 
 import behaviorgraph.Event.Companion.InitialEvent
+import kotlinx.coroutines.Job
 import java.util.concurrent.Future
 
 /**
@@ -63,7 +64,7 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
      * Create a new action and call [update].
      */
     @JvmOverloads
-    fun updateWithAction(newValue: T, debugName: String? = null): Future<*> {
+    fun updateWithAction(newValue: T, debugName: String? = null): Job {
         return graph.action(debugName, { update(newValue) })
     }
 

@@ -1,5 +1,7 @@
 package behaviorgraph
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.future.asCompletableFuture
 import kotlin.test.*
 import java.lang.Thread
 import java.util.concurrent.*
@@ -24,7 +26,7 @@ class ConcurrencyTests : AbstractBehaviorGraphTest() {
         t1.name = "thisthread"
         t1.start()
         sem.acquire()
-        assertEquals("thisthread", runningThread)
+        assert(runningThread?.contains(Regex("thisthread")) ?: false) // contains because coroutines can alter thread name some
     }
 
     @Test
@@ -52,19 +54,18 @@ class ConcurrencyTests : AbstractBehaviorGraphTest() {
         var f2: Future<*>? = null
 
         val t1 = Thread {
-            f1 = sr1.updateWithAction(1)
+            f1 = sr1.updateWithAction(1).asCompletableFuture()
         }.start()
         // first thread running bg (intentionally blocked in behavior)
         sem1.acquire()
 
         val t2 = Thread {
-            f2 = sr2.updateWithAction(2)
+            f2 = sr2.updateWithAction(2).asCompletableFuture()
             sem1.release()
         }.start()
         // thread 2 will be blocked and return a future
         sem1.acquire()
         assertFalse(f2!!.isDone) // still running
-        assertFalse(f2!!.cancel(true)) // fails to cancel
         assertFalse(f2!!.isCancelled) // always false
         // let t1 finish
         sem2.release()
@@ -102,7 +103,7 @@ class ConcurrencyTests : AbstractBehaviorGraphTest() {
         var f2: Future<*>? = null
 
         val t1 = Thread {
-            f1 = sr1.updateWithAction(1)
+            f1 = sr1.updateWithAction(1).asCompletableFuture()
         }.start()
         // first thread running bg (intentionally blocked in behavior)
         sem1.acquire()
@@ -114,7 +115,7 @@ class ConcurrencyTests : AbstractBehaviorGraphTest() {
                 // This will hit an assert and throws which shows up in the console,
                 // but because it is in a background thread the other threads will continue.
                 ext.action { }
-            }
+            }.asCompletableFuture()
             sem1.release()
         }.start()
         // thread 2 will be blocked and return a future
@@ -151,14 +152,14 @@ class ConcurrencyTests : AbstractBehaviorGraphTest() {
         var f2: Future<*>? = null
 
         val t1 = Thread {
-            f1 = sr1.updateWithAction(1)
+            f1 = sr1.updateWithAction(1).asCompletableFuture()
         }.start()
         // first thread running bg (intentionally blocked in behavior)
         sem1.acquire()
 
         val t2 = Thread {
             f2 = ext.action {
-            }
+            }.asCompletableFuture()
             sem1.release()
         }.start()
         // thread 2 will be blocked and return a future
@@ -206,8 +207,9 @@ class ConcurrencyTests : AbstractBehaviorGraphTest() {
 
     @Test
     fun canRunSideEffectsOnSpecifiedThread() {
-        // |> Given we have provided an executor
-        g.sideEffectExecutor = Executors.newSingleThreadExecutor()
+        // |> Given we have provided a different dispatcher
+        //g.defaultSideEffectDispatcher = Dispatchers.IO
+        //g.sideEffectExecutor = Executors.newSingleThreadExecutor()
 
         val sem = Semaphore(0)
         val sr1 = ext.state(1)
@@ -215,7 +217,7 @@ class ConcurrencyTests : AbstractBehaviorGraphTest() {
         ext.behavior()
             .demands(sr1)
             .performs {
-                it.sideEffect {
+                it.sideEffect(dispatcher = Dispatchers.IO) {
                     sideEffectThread = Thread.currentThread()
                     sem.release()
                 }

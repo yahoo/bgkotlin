@@ -628,8 +628,9 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         ext2.behavior().dynamicDemands(ext2.didAdd) { _, demands -> demands.add(r1) }.runs {}
         // |> When that extent is added
         // |> Then it should raise an error
+
         assertFails {
-            ext2.addToGraphWithAction()
+            val f = ext2.addToGraphWithAction()
         }
     }
 }

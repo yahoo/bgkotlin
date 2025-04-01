@@ -4,14 +4,8 @@
 package behaviorgraph
 
 import behaviorgraph.Event.Companion.InitialEvent
-import java.lang.System.currentTimeMillis
-import java.util.ArrayDeque
-import java.util.PriorityQueue
-import java.util.concurrent.Executor
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.Future
-import java.util.concurrent.locks.ReentrantLock
+import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
 import kotlin.math.max
 
 
@@ -21,7 +15,9 @@ import kotlin.math.max
  * @param dateProvider Let's us offer an alternate source of timestamps for an [Event] typically used in testing.
  */
 
-class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = null) {
+class Graph @JvmOverloads constructor(
+    private val dateProvider: DateProvider? = null,
+) {
     /**
      * The current event if one is currently running.
      */
@@ -33,15 +29,13 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
      */
     var lastEvent: Event
         private set
-    private var activatedBehaviors: PriorityQueue<Behavior<*>>
+    private var activatedBehaviors: MutableList<Behavior<*>> = mutableListOf()
 
     /**
      * The current running behavior if one is running.
      */
     var currentBehavior: Behavior<*>? = null
         private set
-    private var effects: ArrayDeque<RunnableSideEffect> = ArrayDeque()
-    internal var actions: ArrayDeque<RunnableAction> = ArrayDeque()
     private var untrackedBehaviors: MutableList<Behavior<*>> = mutableListOf()
     private var modifiedDemandBehaviors: MutableList<Behavior<*>> = mutableListOf()
     private var modifiedSupplyBehaviors: MutableList<Behavior<*>> = mutableListOf()
@@ -50,9 +44,13 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     internal var eventLoopState: EventLoopState? = null
     private var extentsAdded: MutableList<Extent<*>> = mutableListOf()
     private var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
-    private val eventMutex: ReentrantLock = ReentrantLock()
-    private val eventExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     internal val processingChangesOnCurrentThread: Boolean get() = eventLoopState?.runningOnCurrentThread == true && eventLoopState?.phase?.processingChanges == true
+    var defaultSideEffectDispatcher: CoroutineDispatcher? = Dispatchers.Main
+    private var processingMutex: Mutex = Mutex(false)
+    private var actionQueueMutex: Mutex = Mutex(false)
+    private var actionQueue: MutableList<RunnableAction> = mutableListOf()
+    private var effectQueue: MutableList<RunnableSideEffect> = mutableListOf()
+
 
     /**
      * Validating dependencies between nodes in the graph can take some additional time.
@@ -91,18 +89,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
      */
     val currentSideEffect: SideEffect? get() = eventLoopState?.currentSideEffect
 
-    /**
-     * Side effects will run on the same thread of the action by default.
-     * Provide a different executor run side effects on your preferred thread (UI thread)
-     */
-    var sideEffectExecutor: Executor = object : Executor {
-        override fun execute(r: Runnable) {
-            r.run()
-        }
-    }
-
     init {
-        activatedBehaviors = PriorityQueue()
         lastEvent = InitialEvent
     }
 
@@ -125,56 +112,66 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     fun action(
         debugName: String? = null,
         thunk: Thunk
-    ): Future<*> {
+    ): Job {
         val graphAction = GraphAction(thunk, debugName)
-        return actionHelper(graphAction)
+        return this.actionInternal(graphAction)
     }
 
-    internal fun actionHelper(
-        action: RunnableAction
-    ): Future<*> {
-        // Check if not running or already running on same thread
-        if (eventMutex.tryLock()) {
+    internal fun actionInternal(action: RunnableAction): Job {
+        var actionThrowable: Throwable? = null
+        action.job.invokeOnCompletion { cause: Throwable? ->
+            actionThrowable = cause
+        }
+        eventLoopState?.let {
+            val wrongAction = it.thread == Thread.currentThread() &&
+                    (it.phase == EventLoopPhase.Action || it.phase == EventLoopPhase.Updates)
+            assert(
+                !wrongAction,
+                { "Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block." })
+        }
+        if (processingMutex.tryLock()) {
             try {
-                // Check that an action wasn't created from inside another action or behavior.
-                // It is easy to accidentally do an updateWithAction inside a behavior or action
-                // We want to alert the programmer to that mistake.
-                eventLoopState?.let {
-                    val wrongAction = it.thread == Thread.currentThread() &&
-                            (it.phase == EventLoopPhase.Action || it.phase == EventLoopPhase.Updates)
-                    assert(
-                        !wrongAction,
-                        { "Action cannot be created directly inside another action or behavior. Consider wrapping it in a side effect block." })
+                CoroutineScope(Dispatchers.Unconfined).launch {
+                    var nextAction: RunnableAction? = action
+                    while(true) {
+                        if (nextAction == null) {
+                            break
+                        }
+                        nextAction?.let {
+                            internalRunAction(it)
+                        }
+                        actionQueueMutex.lock()
+                        nextAction = actionQueue.removeFirstOrNull()
+                        actionQueueMutex.unlock()
+                    }
                 }
-                // queue up the action and start the event loop if one isn't already running
-                actions.addLast(action)
-                if (currentEvent == null) {
-                    eventLoop()
-                }
-                // action is an implementation of Future interface
-                return action
+                actionThrowable?.let { throw it }
             } finally {
-                eventMutex.unlock()
+                processingMutex.unlock()
             }
         } else {
-            eventExecutor.execute {
+            runBlocking {
                 try {
-                    eventMutex.lock()
-                    actions.addLast(action)
-                    if (currentEvent == null) {
-                        eventLoop()
-                    }
+                    actionQueueMutex.lock()
+                    actionQueue.add(action)
                 } finally {
-                    eventMutex.unlock()
+                    actionQueueMutex.unlock()
                 }
             }
-            return action
         }
+        return action.job
     }
 
-    private fun eventLoop() {
-        while (true) {
-            try {
+    private suspend fun internalRunAction(action: RunnableAction) {
+        try {
+            val newEvent = Event(
+                this.lastEvent.sequence + 1, dateProvider?.now() ?: 0
+            )
+            this.currentEvent = newEvent
+            eventLoopState = EventLoopState(action)
+            eventLoopState?.phase = EventLoopPhase.Action
+            action.runAction()
+            while (true) {
                 if (activatedBehaviors.size > 0 ||
                     untrackedBehaviors.size > 0 ||
                     modifiedDemandBehaviors.size > 0 ||
@@ -202,15 +199,17 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                         extentsRemoved.clear()
                     }
                 }
-                if (effects.isNotEmpty()) {
-                    val effect = this.effects.removeFirst()
+                if (effectQueue.isNotEmpty()) {
+                    val effect = this.effectQueue.removeAt(0)
                     eventLoopState?.phase = EventLoopPhase.SideEffects
                     eventLoopState?.currentSideEffect = effect
-                    sideEffectExecutor.execute(effect)
+                    withContext(effect.dispatcher ?: defaultSideEffectDispatcher ?: Dispatchers.Unconfined) {
+                        effect.run()
+                    }
                     if (eventLoopState != null) {
                         // side effect could create a synchronous action which would create a nested event loop
                         // which would clear out any existing event loop states
-                        eventLoopState?.currentSideEffect = null;
+                        eventLoopState?.currentSideEffect = null
                     }
                     continue
                 }
@@ -222,39 +221,25 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                     currentEvent = null
                     eventLoopState = null
                     currentBehavior = null
-                    eventAction?.complete()
+                    eventAction?.job?.complete()
                 }
-
-                if (actions.isNotEmpty()) {
-                    val action = actions.removeFirst()
-                    val newEvent = Event(
-                        this.lastEvent.sequence + 1, dateProvider?.now() ?: currentTimeMillis()
-                    )
-                    this.currentEvent = newEvent
-                    eventLoopState = EventLoopState(action)
-                    eventLoopState?.phase = EventLoopPhase.Action
-                    action.runAction()
-                    continue
-                }
-            } catch (e: Throwable) {
-                //put graph into clean state and rethrow exception
-                currentEvent = null
-                eventLoopState?.action?.fail(e) // put exception into action's Future
-                eventLoopState = null
-                actions.clear()
-                effects.clear()
-                currentBehavior = null
-                activatedBehaviors.clear()
-                clearTransients()
-                modifiedDemandBehaviors.clear()
-                modifiedSupplyBehaviors.clear()
-                untrackedBehaviors.clear()
-                extentsAdded.clear()
-                extentsRemoved.clear()
-                throw e
+                break
             }
-            // no more tasks so we can exit the event loop
-            break
+        } catch (e: Throwable) {
+            //put graph into clean state and rethrow exception
+            currentEvent = null
+            eventLoopState?.action?.job?.completeExceptionally(e)
+            eventLoopState = null
+            actionQueue.clear()
+            effectQueue.clear()
+            currentBehavior = null
+            activatedBehaviors.clear()
+            clearTransients()
+            modifiedDemandBehaviors.clear()
+            modifiedSupplyBehaviors.clear()
+            untrackedBehaviors.clear()
+            extentsAdded.clear()
+            extentsRemoved.clear()
         }
     }
 
@@ -344,14 +329,27 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
     }
 
     private fun runNextBehavior(sequence: Long) {
-        if (activatedBehaviors.isEmpty()) {
-            return
+        var nextBehaviorIndex: Int? = null
+        var currentIndex: Int = 0
+        for (behavior in activatedBehaviors) {
+            if (behavior.order == 0L) {
+                nextBehaviorIndex = currentIndex
+                break
+            } else if (nextBehaviorIndex == null) {
+                nextBehaviorIndex = currentIndex
+            } else if (behavior.order < activatedBehaviors[nextBehaviorIndex].order) {
+                nextBehaviorIndex = currentIndex
+            }
+            currentIndex += 1
         }
-        val behavior: Behavior<Any> = activatedBehaviors.remove() as Behavior<Any>
-        if (behavior.removedWhen != sequence) {
-            currentBehavior = behavior
-            behavior.thunk.invoke(behavior.extent.context ?: behavior.extent)
-            currentBehavior = null
+        nextBehaviorIndex?.let {
+            var behavior: Behavior<Any> = activatedBehaviors[it] as Behavior<Any>
+            activatedBehaviors.removeAt(it)
+            if (behavior.removedWhen != sequence) {
+                currentBehavior = behavior
+                behavior.thunk.invoke(behavior.extent.context ?: behavior.extent)
+                currentBehavior = null
+            }
         }
     }
 
@@ -376,7 +374,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
                 "You've created a side effect inside another side effect. Side effects should be created inside behaviors. Is this a mistake?"
             }
         } else {
-            this.effects.addLast(sideEffect)
+            this.effectQueue.add(sideEffect)
         }
 
     }
@@ -556,22 +554,12 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
         }
         needsOrdering.clear()
 
-        val needsReheap = mutableListOf(false) // this allows out parameter
         for (behavior in localNeedsOrdering) {
-            sortDFS(behavior, needsReheap)
-        }
-
-        if (needsReheap[0]) {
-            // priorities have changed so we need to add existing elements to a new priority queue
-            val oldQueue = activatedBehaviors
-            activatedBehaviors = PriorityQueue<Behavior<*>>()
-            for (behavior in oldQueue) {
-                activatedBehaviors.add(behavior)
-            }
+            sortDFS(behavior)
         }
     }
 
-    private fun sortDFS(behavior: Behavior<*>, needsReheap: MutableList<Boolean>) {
+    private fun sortDFS(behavior: Behavior<*>) {
         if (behavior.orderingState == OrderingState.Ordering) {
             assert(false) {
                 val cycleString = debugCycleForBehavior(behavior)
@@ -588,7 +576,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
             behavior.demands?.forEach { demand ->
                 demand.suppliedBy?.let { prior ->
                     if (prior.orderingState != OrderingState.Ordered) {
-                        sortDFS(prior, needsReheap)
+                        sortDFS(prior)
                     }
                     order = max(order, prior.order + 1)
                 }
@@ -596,10 +584,7 @@ class Graph @JvmOverloads constructor(private val dateProvider: DateProvider? = 
 
             behavior.orderingState = OrderingState.Ordered
 
-            if (order != behavior.order) {
-                behavior.order = order
-                needsReheap[0] = true
-            }
+            behavior.order = order
         }
     }
 

@@ -3,6 +3,7 @@
 //
 package behaviorgraph
 
+import kotlinx.coroutines.future.asCompletableFuture
 import kotlin.test.*
 
 class StateTest : AbstractBehaviorGraphTest() {
@@ -273,7 +274,7 @@ class StateTest : AbstractBehaviorGraphTest() {
 
         // |> When it is updated by a behavior
         // |> Then it should throw
-        assertFails { mr1.update() }
+        assertFails { mr1.updateWithAction() }
     }
 
     @Test

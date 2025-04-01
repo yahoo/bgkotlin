@@ -3,6 +3,7 @@
 //
 package behaviorgraph
 
+import kotlinx.coroutines.future.asCompletableFuture
 import java.util.concurrent.Future
 import kotlin.test.*
 
@@ -150,7 +151,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
                 f = ext.action("new") {
                     actionIsRun = counter
                     counter += 1
-                }
+                }.asCompletableFuture()
                 futureIsDoneBeforeSideEffect = f!!.isDone
                 effectIsRun = counter
                 counter += 1
@@ -256,7 +257,7 @@ class EffectsActionsEventsTest : AbstractBehaviorGraphTest() {
 
         val f = g.action("2") {
             m1.update();
-        }
+        }.asCompletableFuture()
         f.get()
 
         assertEquals(lastActionName, "2")

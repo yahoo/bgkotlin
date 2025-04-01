@@ -3,6 +3,8 @@
 //
 package behaviorgraph
 
+import kotlinx.coroutines.CompletableJob
+import kotlinx.coroutines.Job
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Future
@@ -21,64 +23,9 @@ interface Action {
     val debugName: String?
 }
 
-abstract class RunnableAction: Action, Future<Nothing?> {
+abstract class RunnableAction: Action {
     abstract fun runAction()
-    private val semaphore: Semaphore = Semaphore(0)
-    private var completed: Boolean = false
-    private var underlyingProblem: Throwable? = null
-
-    fun fail(underlyingProblem: Throwable) {
-        this.underlyingProblem = underlyingProblem
-        semaphore.release()
-    }
-
-    fun complete() {
-        if (!completed) {
-            completed = true
-            semaphore.release()
-        }
-    }
-
-    override fun cancel(p0: Boolean): Boolean {
-        return false
-    }
-
-    override fun isCancelled(): Boolean {
-        return false
-    }
-
-    override fun isDone(): Boolean {
-        return completed
-    }
-
-    override fun get(): Nothing? {
-        try {
-            semaphore.acquire()
-            if (underlyingProblem == null) {
-                return null
-            } else {
-                throw ExecutionException(underlyingProblem)
-            }
-        } finally {
-            semaphore.release()
-        }
-    }
-
-    override fun get(p0: Long, p1: TimeUnit): Nothing? {
-        if (semaphore.tryAcquire(p0, p1)) {
-            try {
-                if (underlyingProblem == null) {
-                    return null
-                } else {
-                    throw ExecutionException(underlyingProblem)
-                }
-            } finally {
-                semaphore.release()
-            }
-        } else {
-            throw TimeoutException()
-        }
-    }
+    internal val job: CompletableJob = Job()
 }
 
 internal class GraphAction(val thunk: Thunk, override val debugName: String? = null): RunnableAction() {

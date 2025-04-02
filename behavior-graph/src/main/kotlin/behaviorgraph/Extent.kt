@@ -5,7 +5,6 @@ package behaviorgraph
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.job
 
 /**
  * An **Extent** is a collection of resources and behaviors. Extents allow us to
@@ -229,7 +228,7 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
     @JvmOverloads
     fun action(debugName: String? = null, thunk: ExtentThunk<ExtentContext>): Job {
         val action = ExtentAction(thunk, (context ?: this) as ExtentContext, debugName)
-        return graph.actionInternal(action).job
+        return graph.actionInternal(action)
     }
 
     override fun toString(): String {

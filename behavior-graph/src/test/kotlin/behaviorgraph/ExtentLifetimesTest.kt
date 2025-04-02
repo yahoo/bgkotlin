@@ -541,5 +541,78 @@ class ExtentLifetimesTest : AbstractBehaviorGraphTest() {
         ext2.addToGraphWithAction()
     }
 
+    @Test
+    fun `if extents are added or removed they should be removed from corresponding lists regardless of validation checks`() {
+        // |> Given validate lifetimes is disabled
+        g.validateLifetimes = false
+        val ext1 = TestExtent(g)
+
+        // |> When extent is added
+        ext1.addToGraphWithAction()
+
+        // |> Then it shouldn't be on added list after adding
+        assertEquals(0, g.extentsAdded.size)
+
+        // |> And when it is removed
+        ext1.removeFromGraphWithAction()
+
+        // |> Then it shouldn't be on removed list
+        assertEquals(0, g.extentsRemoved.size)
+    }
+
+    @Test
+    fun `extents and lifetimes are cleared after extent removed`() {
+        // NOTE: We don't want lifetimes that are still around to
+        // retain extents that are no longer needed and cause
+        // memory leak
+
+        // |> Given an extent is in a shared lifetime
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
+        ext1.unifyLifetime(ext2)
+        g.action {
+            ext1.addToGraph()
+            ext2.addToGraph()
+        }
+        assertEquals(ext1.lifetime, ext2.lifetime)
+
+        // |> When that extents are removed from graph
+        val lifetime: ExtentLifetime = ext1.lifetime!!
+        g.action {
+            ext1.removeFromGraph()
+            ext2.removeFromGraph()
+        }
+
+        // |> Then they should no longer have the lifetime
+        // and the lifetime should no longer have them
+        assertNull(ext1.lifetime)
+        assertNull(ext2.lifetime)
+        assertFalse(lifetime.extents.contains(ext1))
+        assertFalse(lifetime.extents.contains(ext2))
+    }
+
+    @Test
+    fun `empty lifetime after removals removes from parent`() {
+        // NOTE: No need to keep around an empty lifetime as part of parent
+        // child relationship
+
+        // |> Given an extent in a child relationship
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
+        ext1.addChildLifetime(ext2)
+        g.action {
+            ext1.addToGraph()
+            ext2.addToGraph()
+        }
+
+        // |> When that extent is removed
+        val lifetime1 = ext1.lifetime!!
+        val lifetime2 = ext2.lifetime!!
+        ext2.removeFromGraphWithAction()
+
+        // |> Then it should no longer be a child of the parent
+        assertNull(lifetime2.parent)
+        assertTrue(lifetime1.children?.isEmpty() ?: false)
+    }
 
 }

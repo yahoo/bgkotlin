@@ -42,8 +42,8 @@ class Graph @JvmOverloads constructor(
     private var updatedTransients: MutableList<Transient> = mutableListOf()
     private var needsOrdering: MutableList<Behavior<*>> = mutableListOf()
     internal var eventLoopState: EventLoopState? = null
-    private var extentsAdded: MutableList<Extent<*>> = mutableListOf()
-    private var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
+    internal var extentsAdded: MutableList<Extent<*>> = mutableListOf()
+    internal var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
     internal val processingChangesOnCurrentThread: Boolean get() = eventLoopState?.runningOnCurrentThread == true && eventLoopState?.phase?.processingChanges == true
     var defaultSideEffectDispatcher: CoroutineDispatcher? = Dispatchers.Main
     private var processingMutex: Mutex = Mutex(false)
@@ -192,13 +192,17 @@ class Graph @JvmOverloads constructor(
                 if (validateLifetimes) {
                     if (extentsAdded.size > 0) {
                         validateAddedExtents()
-                        extentsAdded.clear()
                     }
                     if (extentsRemoved.size > 0) {
                         validateRemovedExtents()
-                        extentsRemoved.clear()
                     }
                 }
+                extentsAdded.clear()
+                for (removed in extentsRemoved) {
+                    removed.lifetime?.clearExtentRelationship(removed)
+                }
+                extentsRemoved.clear()
+
                 if (effectQueue.isNotEmpty()) {
                     val effect = this.effectQueue.removeAt(0)
                     eventLoopState?.phase = EventLoopPhase.SideEffects
@@ -726,7 +730,7 @@ class Graph @JvmOverloads constructor(
                     extent.lifetime?.addedToGraphWhen = currentEvent?.sequence
                 }
             }
-            val refParent = extent.lifetime?.parent?.get()
+            val refParent = extent.lifetime?.parent
             if (refParent != null && refParent.addedToGraphWhen == null) {
                 assert(false) {
                     "Extent with child lifetime must be added after parent."

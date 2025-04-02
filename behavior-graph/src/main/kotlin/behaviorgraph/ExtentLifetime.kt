@@ -1,21 +1,15 @@
 package behaviorgraph
 
-import java.lang.ref.WeakReference
-import java.util.WeakHashMap
-
 internal class ExtentLifetime(
     extent: Extent<*>
 ){
     var addedToGraphWhen: Long? = null
-    // WeakHashMaps prevent extents from holding on to each other internally
-    // otherwise we would need a hypothetical removeChildExtent when finished
-    // in order for it to be fully released
-    val extents: WeakHashMap<Extent<*>, Boolean> = WeakHashMap()
-    var children: WeakHashMap<ExtentLifetime, Boolean>? = null
-    var parent: WeakReference<ExtentLifetime>? = null
+    val extents: MutableSet<Extent<*>> = mutableSetOf()
+    var children: MutableSet<ExtentLifetime>? = null
+    var parent: ExtentLifetime? = null
 
     init {
-        extents[extent] = true
+        extents.add(extent)
         if (extent.addedToGraphWhen != null) {
             addedToGraphWhen = extent.addedToGraphWhen
         }
@@ -31,17 +25,17 @@ internal class ExtentLifetime(
         if (extent.lifetime != null) {
             // merge existing lifetimes and children into one lifetime heirarchy
             // move children first
-            extent.lifetime?.children?.forEach {(lifetime, _) ->
+            extent.lifetime?.children?.forEach {lifetime ->
                 addChildLifetime(lifetime)
             }
             // then make any extents in other lifetime part of this one
-            extent.lifetime?.extents?.forEach { (it, _) ->
+            extent.lifetime?.extents?.forEach { it ->
                 it.lifetime = this
-                extents[it] = true
+                extents.add(it)
             }
         } else {
             extent.lifetime = this
-            extents[extent] = true
+            extents.add(extent)
         }
     }
 
@@ -64,13 +58,13 @@ internal class ExtentLifetime(
                 }
                 return
             }
-            myLifetime = myLifetime.parent?.get()
+            myLifetime = myLifetime.parent
         }
-        lifetime.parent = WeakReference(this)
+        lifetime.parent = this
         if (children == null) {
-            children = WeakHashMap()
+            children = mutableSetOf()
         }
-        children?.put(lifetime, true)
+        children?.add(lifetime)
     }
 
     fun hasCompatibleLifetime(lifetime: ExtentLifetime?): Boolean {
@@ -82,7 +76,7 @@ internal class ExtentLifetime(
             val thisParent = parent
             if (thisParent != null) {
                 // parent is a weak reference so we get it here
-                val refParent = thisParent.get()
+                val refParent = thisParent
                 if (refParent != null) {
                     return refParent.hasCompatibleLifetime(lifetime)
                 }
@@ -93,18 +87,31 @@ internal class ExtentLifetime(
 
     fun getAllContainedExtents(): List<Extent<*>> {
         val resultExtents = mutableListOf<Extent<*>>()
-        resultExtents.addAll(extents.keys)
-        children?.forEach { (childLifetime, _) -> resultExtents.addAll(childLifetime.getAllContainedExtents()) }
+        resultExtents.addAll(extents)
+        children?.forEach { childLifetime -> resultExtents.addAll(childLifetime.getAllContainedExtents()) }
         return resultExtents
     }
 
     fun getAllContainingExtents(): List<Extent<*>> {
         val resultExtents = mutableListOf<Extent<*>>()
-        resultExtents.addAll(extents.keys)
+        resultExtents.addAll(extents)
         parent?.let {
-            it.get()?.let {
-                resultExtents.addAll(it.getAllContainingExtents()) }
-            }
+            resultExtents.addAll(it.getAllContainingExtents())
+        }
         return resultExtents
+    }
+
+    fun clearExtentRelationship(removedExtent: Extent<*>) {
+        // Removed extents no longer participate in their lifetime
+        // Unwind those to prevent memory leaks
+
+        // removed extent is no longer part of it's lifetime
+        extents.remove(removedExtent)
+        // and empty lifetimes are no longer part of a parent child relationship
+        if (extents.isEmpty()) {
+            parent?.children?.remove(this)
+            parent = null
+        }
+        removedExtent.lifetime = null
     }
 }

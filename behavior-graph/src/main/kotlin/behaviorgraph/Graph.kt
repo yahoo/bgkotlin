@@ -554,12 +554,25 @@ class Graph @JvmOverloads constructor(
         }
         needsOrdering.clear()
 
+        val needsReheap = mutableListOf(false) // this allows out parameter
         for (behavior in localNeedsOrdering) {
-            sortDFS(behavior)
+            sortDFS(behavior, needsReheap)
+        }
+
+        if (needsReheap[0]) {
+            // this would reheap priority queue based on updated orders
+            // however since I moved to just an array with just in time sorting
+            // I'll leave the signal in but do nothing
+            // priorities have changed so we need to add existing elements to a new priority queue
+//            val oldQueue = activatedBehaviors
+//            activatedBehaviors = PriorityQueue<Behavior<*>>()
+//            for (behavior in oldQueue) {
+//                activatedBehaviors.add(behavior)
+//            }
         }
     }
 
-    private fun sortDFS(behavior: Behavior<*>) {
+    private fun sortDFS(behavior: Behavior<*>, needsReheap: MutableList<Boolean>) {
         if (behavior.orderingState == OrderingState.Ordering) {
             assert(false) {
                 val cycleString = debugCycleForBehavior(behavior)
@@ -576,7 +589,7 @@ class Graph @JvmOverloads constructor(
             behavior.demands?.forEach { demand ->
                 demand.suppliedBy?.let { prior ->
                     if (prior.orderingState != OrderingState.Ordered) {
-                        sortDFS(prior)
+                        sortDFS(prior, needsReheap)
                     }
                     order = max(order, prior.order + 1)
                 }
@@ -584,7 +597,10 @@ class Graph @JvmOverloads constructor(
 
             behavior.orderingState = OrderingState.Ordered
 
-            behavior.order = order
+            if (order != behavior.order) {
+                behavior.order = order
+                needsReheap[0] = true
+            }
         }
     }
 

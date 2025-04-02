@@ -4,7 +4,6 @@
 package behaviorgraph
 
 import kotlinx.coroutines.Job
-import java.util.concurrent.Future
 
 /**
  * A Moment is a type of resource is a type of Resource for tracking information that exists at a

@@ -5,9 +5,7 @@ package behaviorgraph
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.future.asCompletableFuture
 import kotlinx.coroutines.job
-import java.util.concurrent.Future
 
 /**
  * An **Extent** is a collection of resources and behaviors. Extents allow us to

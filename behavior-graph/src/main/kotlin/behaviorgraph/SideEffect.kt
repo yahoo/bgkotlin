@@ -4,7 +4,6 @@
 package behaviorgraph
 
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 
 /**
  * SideEffects are blocks of code that are guaranteed to run at the end of the current event.

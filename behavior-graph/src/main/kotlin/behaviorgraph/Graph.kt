@@ -29,7 +29,7 @@ class Graph @JvmOverloads constructor(
      */
     var lastEvent: Event
         private set
-    private var activatedBehaviors: MutableList<Behavior<*>> = mutableListOf()
+    private var activatedBehaviors: BehaviorQueue = BehaviorQueue()
 
     /**
      * The current running behavior if one is running.
@@ -333,25 +333,11 @@ class Graph @JvmOverloads constructor(
     }
 
     private fun runNextBehavior(sequence: Long) {
-        var nextBehaviorIndex: Int? = null
-        var currentIndex: Int = 0
-        for (behavior in activatedBehaviors) {
-            if (behavior.order == 0L) {
-                nextBehaviorIndex = currentIndex
-                break
-            } else if (nextBehaviorIndex == null) {
-                nextBehaviorIndex = currentIndex
-            } else if (behavior.order < activatedBehaviors[nextBehaviorIndex].order) {
-                nextBehaviorIndex = currentIndex
-            }
-            currentIndex += 1
-        }
-        nextBehaviorIndex?.let {
-            var behavior: Behavior<Any> = activatedBehaviors[it] as Behavior<Any>
-            activatedBehaviors.removeAt(it)
-            if (behavior.removedWhen != sequence) {
-                currentBehavior = behavior
-                behavior.thunk.invoke(behavior.extent.context ?: behavior.extent)
+        val behavior: Behavior<Any>? = activatedBehaviors.pop() as Behavior<Any>?
+        behavior?.let {
+            if (it.removedWhen != sequence) {
+                currentBehavior = it
+                behavior.thunk.invoke(it.extent.context ?: it.extent)
                 currentBehavior = null
             }
         }
@@ -564,15 +550,9 @@ class Graph @JvmOverloads constructor(
         }
 
         if (needsReheap[0]) {
-            // this would reheap priority queue based on updated orders
-            // however since I moved to just an array with just in time sorting
-            // I'll leave the signal in but do nothing
-            // priorities have changed so we need to add existing elements to a new priority queue
-//            val oldQueue = activatedBehaviors
-//            activatedBehaviors = PriorityQueue<Behavior<*>>()
-//            for (behavior in oldQueue) {
-//                activatedBehaviors.add(behavior)
-//            }
+            // if orders have changed, we wll need to make sure any existing activated
+            // behaviors are properly sorted
+            activatedBehaviors.reheap()
         }
     }
 
@@ -603,6 +583,11 @@ class Graph @JvmOverloads constructor(
 
             if (order != behavior.order) {
                 behavior.order = order
+                // TODO: a small optimization may be to skip
+                // reheap if it's not activated. So if we
+                // have a bunch of elements in behavior queue but only
+                // one non activated behavior changes, there's
+                // no need to resort those
                 needsReheap[0] = true
             }
         }

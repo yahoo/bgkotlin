@@ -151,7 +151,7 @@ class GraphCheckTests : AbstractBehaviorGraphTest() {
 
         assertNull(g.currentEvent)
         assertNull(g.currentBehavior)
-        assertEquals(0, (reflectionGetField(g, "activatedBehaviors") as Collection<*>).size)
+        assertEquals(0, (reflectionGetField(g, "activatedBehaviors") as BehaviorQueue).size)
         assertFalse(r1.justUpdated)
         assertEquals(
             0,

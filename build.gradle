@@ -1,8 +1,9 @@
 project.group = 'com.yahoo.behaviorgraph'
-version = '0.6.0-RC1'
 
 buildscript {
-    ext.kotlin_version = '2.1.0'
+    ext.release_version = '0.13.0-BETA'
+    ext.kotlin_version = '1.9.25'
+    ext.coroutines_version = '1.9.0'
     repositories {
         mavenLocal()
         mavenCentral()

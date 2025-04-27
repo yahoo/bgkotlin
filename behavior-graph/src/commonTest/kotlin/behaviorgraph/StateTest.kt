@@ -387,4 +387,61 @@ class StateTest : AbstractBehaviorGraphTest() {
             sr2.updateWithAction(2)
         }
     }
+
+    @Test
+    fun canObserveStateChanges() {
+        // |> Given a state resource
+        val sr1 = ext.state<Long>(0, "sr1")
+        val sr2 = ext.state<Long>(0, "sr2")
+        ext.behavior()
+            .supplies(sr2)
+            .demands(sr1)
+            .runs {
+                sr2.update(sr1.value * 2)
+            }
+        ext.addToGraphWithAction()
+
+
+        // |> When we observe changes to the state resource
+        var lastValue = 0L
+        val observer = sr2.observeStateChange { newValue ->
+            lastValue = newValue
+        }
+
+        // |> And we update the state resource
+        sr1.updateWithAction(1)
+        assertEquals(2L, lastValue)
+        sr1.updateWithAction(2)
+        assertEquals(4L, lastValue)
+
+        observer.removeEarly()
+        sr1.updateWithAction(3)
+        assertEquals(4L, lastValue) // No change after observer removed
+    }
+
+    @Test
+    fun canObserveBeforeExtentAdded() {
+        // this will just add the behavior to the extent and will get added when extents add
+        // the point is to not making observers strictly dependent on when the extent is added to the graph
+
+        // |> Given a state resource
+        val sr1 = ext.state<Long>(0, "sr1")
+        val sr2 = ext.state<Long>(0, "sr2")
+        ext.behavior()
+            .supplies(sr2)
+            .demands(sr1)
+            .runs {
+                sr2.update(sr1.value * 2)
+            }
+        // |> When we observe changes to the state resource
+        var lastValue = 0L
+        val observer = sr2.observeStateChange { newValue ->
+            lastValue = newValue
+        }
+        // |> And we add the extent to the graph
+        ext.addToGraphWithAction()
+        // |> And we update the state resource
+        sr1.updateWithAction(1)
+        assertEquals(2L, lastValue)
+    }
 }

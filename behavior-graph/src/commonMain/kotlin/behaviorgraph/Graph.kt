@@ -5,6 +5,7 @@ package behaviorgraph
 
 import behaviorgraph.Event.Companion.InitialEvent
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlin.math.max
 import kotlin.jvm.JvmOverloads
@@ -47,12 +48,13 @@ class Graph @JvmOverloads constructor(
     internal var extentsAdded: MutableList<Extent<*>> = mutableListOf()
     internal var extentsRemoved: MutableList<Extent<*>> = mutableListOf()
     internal val processingChangesOnCurrentThread: Boolean get() = platformSpecific.runningOnCurrentThread(eventLoopState) && eventLoopState?.phase?.processingChanges == true
-    var defaultSideEffectDispatcher: CoroutineDispatcher? = Dispatchers.Main
+    var defaultSideEffectDispatcher: CoroutineDispatcher? = Dispatchers.Unconfined
     private var processingMutex: Mutex = Mutex(false)
     private var actionQueueMutex: Mutex = Mutex(false)
     private var actionQueue: MutableList<RunnableAction> = mutableListOf()
     private var effectQueue: MutableList<RunnableSideEffect> = mutableListOf()
-
+    private var addBehaviorChannel: Channel<Behavior<*>> = Channel(Channel.UNLIMITED)
+    private var removeBehaviorChannel: Channel<Behavior<*>> = Channel(Channel.UNLIMITED)
 
     /**
      * Validating dependencies between nodes in the graph can take some additional time.
@@ -176,6 +178,8 @@ class Graph @JvmOverloads constructor(
             platformSpecific.setCurrentThread(newState)
             newState.phase = EventLoopPhase.Action
             eventLoopState = newState
+            removeMarkedRemovalBehaviors()
+            collectLateAddBehaviors()
             action.runAction()
             while (true) {
                 if (activatedBehaviors.size > 0 ||
@@ -250,6 +254,31 @@ class Graph @JvmOverloads constructor(
             untrackedBehaviors.clear()
             extentsAdded.clear()
             extentsRemoved.clear()
+        }
+    }
+
+    private fun collectLateAddBehaviors() {
+        while (true) {
+            val lateBehavior: Behavior<*>? = addBehaviorChannel.tryReceive().getOrNull()
+            if (lateBehavior == null) {
+                break
+            } else {
+                // add as untracked behavior only if the extent has already been added to graph
+                if (lateBehavior.extent.addedToGraphWhen != null) {
+                    untrackedBehaviors.add(lateBehavior)
+                }
+            }
+        }
+    }
+
+    private fun removeMarkedRemovalBehaviors() {
+        while (true) {
+            val behaviorToRemove: Behavior<*>? = removeBehaviorChannel.tryReceive().getOrNull()
+            if (behaviorToRemove == null) {
+                break
+            } else {
+                removeBehavior(behaviorToRemove, this.currentEvent?.sequence ?: 0)
+            }
         }
     }
 
@@ -635,7 +664,7 @@ class Graph @JvmOverloads constructor(
         return false
     }
 
-    private fun addBehavior(behavior: Behavior<*>) {
+    internal fun addBehavior(behavior: Behavior<*>) {
         this.untrackedBehaviors.add(behavior)
     }
 
@@ -669,7 +698,19 @@ class Graph @JvmOverloads constructor(
         modifiedSupplyBehaviors.add(behavior)
     }
 
+    internal fun markBehaviorForRemoval(behavior: Behavior<*>) {
+        removeBehaviorChannel.trySend(behavior)
+    }
+
+    internal fun addLateBehavior(behavior: Behavior<*>) {
+        addBehaviorChannel.trySend(behavior)
+    }
+
     private fun removeBehavior(behavior: Behavior<*>, sequence: Long) {
+        if (behavior.removedWhen != null) { // already removed
+            return
+        }
+
         // If we demand a foreign resource then we should be
         // removed from its list of subsequents
         var removed = false

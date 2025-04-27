@@ -633,4 +633,162 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
             val f = ext2.addToGraphWithAction()
         }
     }
+
+    @Test
+    fun canAddBehaviorAfterExtentAdded() {
+        // NOTE: Supports observer pattern for easier integration with external systems
+
+        // |> Given we already added an extent
+        val ext1 = TestExtent(g)
+        val r1 = ext1.moment()
+        ext1.addToGraphWithAction()
+
+        // |> When we add another behavior and it activates
+        var didRun = false
+        val b1 = ext1.behavior().demands(r1).runs {
+            didRun = true
+        }
+        b1.addLate()
+        r1.updateWithAction()
+
+        // |> Then that behavior should run
+        assertTrue(didRun)
+    }
+
+    @Test
+    fun canRemoveBehaviorBeforeExtentRemoved() {
+        // NOTE: Supports observer pattern for easier integration with external systems
+
+        // |> Given we have an added behavior
+        val ext1 = TestExtent(g)
+        val r1 = ext1.moment()
+        var didRun = false
+        val b1 = ext1.behavior().demands(r1).runs {
+            didRun = true
+        }
+        ext1.addToGraphWithAction()
+
+        // |> When we remove it before extent removed
+        b1.removeEarly()
+        r1.updateWithAction()
+
+        // |> Then it won't run
+        assertFalse(didRun)
+    }
+
+    @Test
+    fun ignoreAddingAlreadyAddedBehavior() {
+        // |> Given we have an added behavior
+        val ext1 = TestExtent(g)
+        val r1 = ext1.moment()
+        var didRun = false
+        val b1 = ext1.behavior().demands(r1).runs {
+            didRun = true
+        }
+        ext1.addToGraphWithAction()
+
+        // |> When add it again
+        b1.addLate()
+
+        // |> Then it will be fine
+        assertNoThrow {
+            r1.updateWithAction()
+        }
+    }
+
+    @Test
+    fun ignoreRemovingAlreadyRemovedBehavior() {
+        // |> Given we have already removed behavior
+        val ext1 = TestExtent(g)
+        val r1 = ext1.moment()
+        var didRun = false
+        val b1 = ext1.behavior().demands(r1).runs {
+            didRun = true
+        }
+        ext1.addToGraphWithAction()
+        b1.removeEarly()
+        r1.updateWithAction() // action required to actually remove it
+
+        // |> When remove it again
+        b1.removeEarly()
+
+        // |> Then it will be fine
+        assertNoThrow {
+            r1.updateWithAction()
+        }
+    }
+
+    @Test
+    fun canRemoveNotAdded() {
+        val ext1 = TestExtent(g)
+        val r1 = ext1.moment()
+        var didRun = false
+        val b1 = ext1.behavior().demands(r1).runs {
+            didRun = true
+        }
+
+        // |> When we remove it before extent added
+        // |> Then it won't run
+        assertNoThrow {
+            b1.removeEarly()
+            r1.updateWithAction()
+        }
+    }
+
+    @Test
+    fun addedBeforeExtentIgnored() {
+        val ext1 = TestExtent(g)
+        val r1 = ext1.moment()
+        var didRun = false
+        val b1 = ext1.behavior().demands(r1).runs {
+            didRun = true
+        }
+
+        // |> When we add it before extent added
+        b1.addLate()
+
+        assertNoThrow {
+            g.action() {
+
+            }
+        }
+
+        ext1.addToGraphWithAction()
+        r1.updateWithAction()
+        assertTrue(didRun)
+    }
+
+    @Test
+    fun changesArePickedUpBeforeActionBlockRuns() {
+        // |> Given an added extent
+        val r1 = ext.state(0L, "r1")
+        val r2 = ext.state(0L, "r2")
+
+        var didRun1 = false
+        var didRun2 = false
+
+        val b1 = ext.behavior().demands(r1).runs {
+            didRun1 = true
+        }
+        ext.addToGraphWithAction()
+
+        // |> When we add a new behavior and remove another
+        // and create an action that would in theory activate both
+        val b2 = ext.behavior().demands(r2).runs {
+            didRun2 = true
+        }
+        b1.removeEarly()
+        b2.addLate()
+
+        // activate both (in theory)
+        g.action {
+            r1.update(2)
+            r2.update(2)
+        }
+
+        // |> Then removed behavior should not run
+        // and added behavior should
+        assertFalse(didRun1)
+        assertTrue(didRun2)
+    }
 }

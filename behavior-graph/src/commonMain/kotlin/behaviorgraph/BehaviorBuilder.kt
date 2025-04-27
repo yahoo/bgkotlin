@@ -159,6 +159,7 @@ class BehaviorBuilder<T: Any>(
         }
 
         val mainBehavior = Behavior(extent, untrackedDemands, untrackedSupplies, thunk)
+        extent.addBehavior(mainBehavior)
 
         if (dynamicDemandSwitches != null) {
             var supplies: List<Resource>? = null
@@ -169,11 +170,12 @@ class BehaviorBuilder<T: Any>(
             } else {
                 dynamicDemandResource?.let { demands.add(it) }
             }
-            Behavior(extent, demands, supplies) {
+            val orderingBehavior = Behavior(extent, demands, supplies) {
                 val mutableListOfDemands = mutableListOf<Demandable?>()
                 dynamicDemandLinks?.invoke(it, mutableListOfDemands)
                 mainBehavior.setDynamicDemands(mutableListOfDemands)
             }
+            extent.addBehavior(orderingBehavior)
         }
 
         if (dynamicSupplySwitches != null) {
@@ -185,11 +187,12 @@ class BehaviorBuilder<T: Any>(
             } else {
                 dynamicSupplyResource?.let { demands.add(it) }
             }
-            Behavior(extent, demands, supplies) {
+            val orderingBehavior = Behavior(extent, demands, supplies) {
                 val mutableListOfSupplies = mutableListOf<Resource?>()
                 dynamicSupplyLinks?.invoke(it, mutableListOfSupplies)
                 mainBehavior.setDynamicSupplies(mutableListOfSupplies)
             }
+            extent.addBehavior(orderingBehavior)
         }
 
         return mainBehavior

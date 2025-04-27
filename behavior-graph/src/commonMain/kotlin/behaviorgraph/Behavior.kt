@@ -37,7 +37,6 @@ class Behavior<T: Any>(
     internal var untrackedDynamicSupplies: List<Resource>? = null
 
     init {
-        extent.addBehavior(this)
         this.untrackedDemands = demands
         this.untrackedSupplies = supplies
     }
@@ -89,5 +88,19 @@ class Behavior<T: Any>(
      */
     fun setDynamicSupplies(newSupplies: List<Resource?>?) {
         this.extent.graph.updateSupplies(this, newSupplies?.filterNotNull())
+    }
+
+    /**
+     * Remove the behavior from the graph independent of extent lifetime (supports observer patterns)
+     */
+    fun removeEarly() {
+        this.extent.graph.markBehaviorForRemoval(this)
+    }
+
+    /**
+     * Add behavior to the graph independent of extent lifetime (supports observer patterns)
+     */
+    fun addLate() {
+        this.extent.graph.addLateBehavior(this)
     }
 }

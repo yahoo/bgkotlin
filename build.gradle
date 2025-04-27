@@ -1,7 +1,7 @@
 project.group = 'com.yahoo.behaviorgraph'
 
 buildscript {
-    ext.release_version = '0.13.0-BETA'
+    ext.bg_version = '0.13.0-BETA'
     ext.kotlin_version = '1.9.25'
     ext.coroutines_version = '1.9.0'
     repositories {

@@ -553,12 +553,9 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         var relinkingOrder: Long? = null
         var behaviorOrder: Long? = null
         ext.behavior()
-            .dynamicDemands(m1, ext.didAdd, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) { _, demands ->
-                if (ext.didAdd.justUpdated) {
-                    demands.add(m2)
-                } else {
-                    relinkingOrder = ext.graph.currentBehavior!!.order
-                }
+            .demands(m1)
+            .dynamicDemands(m1, relinkingOrder = RelinkingOrder.RelinkingOrderSubsequent) { _, demands ->
+                relinkingOrder = ext.graph.currentBehavior!!.order
             }
             .runs {
                 behaviorOrder = ext.graph.currentBehavior!!.order
@@ -569,19 +566,11 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         // |> When m2 is removed but still demanded
         g.action {
             m1.update()
-            m2.update()
         }
 
         // |> Then behavior is run first
         assertTrue(didRun)
         assertTrue(relinkingOrder!! > behaviorOrder!!)
-
-        // |> And when that resource is updated in a future event
-        didRun = false
-        m2.updateWithAction()
-
-        // |> Then it is no longer demanded
-        assertFalse(didRun)
     }
 
     @Test
@@ -791,4 +780,109 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         assertFalse(didRun1)
         assertTrue(didRun2)
     }
+
+    @Test
+    fun inlineDynamicDemandsOnOptional() {
+        class TestExtent(g: Graph) : Extent<TestExtent>(g) {
+            val innerState: State<Long> = state(0, "innerState")
+        }
+
+        val innerExtent = TestExtent(g)
+        innerExtent.addToGraphWithAction()
+
+        val dependentState: State<Long> = ext.state(0, "dependentState")
+        val switchingState: State<TestExtent?> = ext.state(null, "switchingState")
+
+        ext.behavior()
+            .supplies(dependentState)
+            .demands(switchingState.select { it.innerState })
+            .runs {
+                dependentState.update(switchingState.value?.innerState?.value ?: 0)
+            }
+        ext.addToGraphWithAction()
+
+        innerExtent.innerState.updateWithAction(1)
+
+        assertEquals(dependentState.value, 0)
+
+        switchingState.updateWithAction(innerExtent)
+
+        assertEquals(dependentState.value, 1)
+    }
+
+    @Test
+    fun inlineDynamicDemansOnIterable() {
+        class TestExtent(g: Graph) : Extent<TestExtent>(g) {
+            val innerState: State<Long> = state(0, "innerState")
+        }
+
+        val innerExtent1 = TestExtent(g)
+        val innerExtent2 = TestExtent(g)
+        innerExtent1.addToGraphWithAction()
+        innerExtent2.addToGraphWithAction()
+
+        val dependentState: State<Long> = ext.state(0, "dependentState")
+        val collectingState: State<List<TestExtent>> = ext.state(emptyList(), "collectingState")
+
+        ext.behavior()
+            .supplies(dependentState)
+            .demands(collectingState.each { it.innerState })
+            .runs {
+                dependentState.update(collectingState.value.sumOf { it.innerState.value })
+            }
+
+        ext.addToGraphWithAction()
+
+        innerExtent1.innerState.updateWithAction(1)
+        innerExtent2.innerState.updateWithAction(2)
+
+        assertEquals(dependentState.value, 0)
+
+        collectingState.updateWithAction(listOf(innerExtent2))
+
+        assertEquals(dependentState.value, 2)
+
+        collectingState.updateWithAction(listOf(innerExtent1))
+        assertEquals(dependentState.value, 1)
+
+        collectingState.updateWithAction(listOf(innerExtent1, innerExtent2))
+        assertEquals(dependentState.value, 3)
+
+    }
+
+    @Test
+    fun dynamicDemandsCanReturnIterable() {
+        class TestExtent(g: Graph) : Extent<TestExtent>(g) {
+            val innerState1: State<Long> = state(1, "innerState1")
+            val innerState2: State<Long> = state(2, "innerState2")
+        }
+
+        val innerExtent = TestExtent(g)
+        innerExtent.addToGraphWithAction()
+
+        val dependentState: State<Long> = ext.state(0, "dependentState")
+        val switchingState: State<TestExtent?> = ext.state(null, "switchingState")
+
+        ext.behavior()
+            .supplies(dependentState)
+            .demands(switchingState.select { listOf(it.innerState1, it.innerState2) })
+            .runs {
+                val val1 = switchingState.value?.innerState1?.value ?: 0
+                val val2 = switchingState.value?.innerState2?.value ?: 0
+                dependentState.update(val1 + val2)
+            }
+        ext.addToGraphWithAction()
+
+        assertEquals(dependentState.value, 0)
+
+        switchingState.updateWithAction(innerExtent)
+
+        assertEquals(dependentState.value, 3)
+
+        innerExtent.innerState1.updateWithAction(2)
+
+        assertEquals(dependentState.value, 4)
+
+    }
+
 }

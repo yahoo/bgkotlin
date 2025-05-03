@@ -122,7 +122,7 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
      */
     fun justUpdatedTo(toValue: T): Boolean {
         return justUpdated &&
-            (currentState.value == toValue)
+                (currentState.value == toValue)
     }
 
     /**
@@ -130,7 +130,7 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
      */
     fun justUpdatedFrom(fromValue: T): Boolean {
         return justUpdated &&
-            (priorStateDuringEvent?.value == fromValue)
+                (priorStateDuringEvent?.value == fromValue)
     }
 
     /**
@@ -149,7 +149,8 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
         val localType = super.toString()
         val localValue = currentState.value
         val localSequence = currentState.event.sequence
-        return "$localDebugName $localType == $localValue ($localSequence)"
+        val string = "$localDebugName $localType == $localValue ($localSequence)"
+        return string
     }
 
     internal data class StateHistory<T>(val value: T, val event: Event)
@@ -169,6 +170,3 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
         return observer
     }
 }
-
-
-

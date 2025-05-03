@@ -218,7 +218,7 @@ open class Extent<ExtentContext: Any> @JvmOverloads constructor(val graph: Graph
     }
 
     override fun toString(): String {
-        return super.toString() + "\n" + graph.toString()
+        return super.toString()
     }
 
 }

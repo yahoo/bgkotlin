@@ -238,4 +238,31 @@ class MomentTest : AbstractBehaviorGraphTest() {
         }
     }
 
+    @Test
+    fun canObserveMomentUpdates() {
+        // |> Given moments
+        val m1 = ext.moment( "m1")
+        val tm1 = ext.typedMoment<Int>("tm1")
+        ext.addToGraphWithAction()
+
+
+        // |> When we observe changes
+        var momentUpdated = false
+        var typedMomentUpdated: Int? = null
+
+        val observer1 = m1.observeUpdates { event ->
+            momentUpdated = true
+        }
+        val observer2 = tm1.observeUpdates { pair ->
+            typedMomentUpdated = pair.first
+        }
+
+        // |> Then our observers are called
+        m1.updateWithAction()
+        assertEquals(true, momentUpdated)
+
+        tm1.updateWithAction(8)
+        assertEquals(8, typedMomentUpdated)
+    }
+
 }

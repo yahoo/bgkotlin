@@ -155,13 +155,13 @@ class State<T> @JvmOverloads constructor(extent: Extent<*>, initialState: T, deb
 
     internal data class StateHistory<T>(val value: T, val event: Event)
 
-    fun observeStateChange(onStateChange: (T) -> Unit): Behavior<*> {
+    fun observeUpdates(onUpdated: (T) -> Unit): Behavior<*> {
         val extent = this.extent as Extent<Any>
         val observer = extent.behavior()
             .demands(this)
             .runs { _ ->
                 this.extent.sideEffect {
-                    onStateChange(this.value)
+                    onUpdated(this.value)
                 }
             }
         if (this.extent.addedToGraphWhen != null) {

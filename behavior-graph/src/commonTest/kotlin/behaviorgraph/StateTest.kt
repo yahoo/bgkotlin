@@ -404,7 +404,7 @@ class StateTest : AbstractBehaviorGraphTest() {
 
         // |> When we observe changes to the state resource
         var lastValue = 0L
-        val observer = sr2.observeStateChange { newValue ->
+        val observer = sr2.observeUpdates { newValue ->
             lastValue = newValue
         }
 
@@ -435,7 +435,7 @@ class StateTest : AbstractBehaviorGraphTest() {
             }
         // |> When we observe changes to the state resource
         var lastValue = 0L
-        val observer = sr2.observeStateChange { newValue ->
+        val observer = sr2.observeUpdates { newValue ->
             lastValue = newValue
         }
         // |> And we add the extent to the graph

@@ -380,14 +380,16 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         m2.updateWithAction()
         m3.updateWithAction()
 
-        // |> Then behavior will be run
-        assertEquals(runCount, 1)
+        // |> Then behavior will be run twice
+        // once for m2 which is automatically included as a demand
+        // and once for m3 which was added when m2 ws updated
+        assertEquals(2,runCount)
 
         // |> And when we update original static resource
         m1.updateWithAction()
 
         // |> Then we expect behavior to also run
-        assertEquals(runCount, 2)
+        assertEquals(3,runCount)
 
         // |> Relink behavior should be a prior to its behavior
         // This ensures that relinking happens before behavior is run
@@ -783,6 +785,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun inlineDynamicDemandsOnOptional() {
+        // |> Given we have a graph which uses inline optional dynamic demand
         class TestExtent(g: Graph) : Extent<TestExtent>(g) {
             val innerState: State<Long> = state(0, "innerState")
         }
@@ -801,17 +804,22 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
             }
         ext.addToGraphWithAction()
 
+        // |> when there is no selected extent
         innerExtent.innerState.updateWithAction(1)
 
+        // |> then we don't pick up the dynamic demands
         assertEquals(dependentState.value, 0)
 
+        // |> And when we pick a switching state
         switchingState.updateWithAction(innerExtent)
 
+        // |> then the demands are picked up
         assertEquals(dependentState.value, 1)
     }
 
     @Test
     fun inlineDynamicDemansOnIterable() {
+        // |> Given a behavior with inline dynamic demands over an iterable
         class TestExtent(g: Graph) : Extent<TestExtent>(g) {
             val innerState: State<Long> = state(0, "innerState")
         }
@@ -833,18 +841,22 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
         ext.addToGraphWithAction()
 
+        // |> When there is nothing in the collection
         innerExtent1.innerState.updateWithAction(1)
         innerExtent2.innerState.updateWithAction(2)
 
+        // |> Then we don't pick up on the dynamic states
         assertEquals(dependentState.value, 0)
 
+        // |> When we add something to the iterable
         collectingState.updateWithAction(listOf(innerExtent2))
 
+        // |> Then the behavior is updated to demand that sub item
         assertEquals(dependentState.value, 2)
-
         collectingState.updateWithAction(listOf(innerExtent1))
         assertEquals(dependentState.value, 1)
 
+        // |> When we add both then, demands pick up both
         collectingState.updateWithAction(listOf(innerExtent1, innerExtent2))
         assertEquals(dependentState.value, 3)
 
@@ -852,6 +864,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun dynamicDemandsCanReturnIterable() {
+        // |> Given we have a behavior with dynamic demands that returns a list of subdemands
         class TestExtent(g: Graph) : Extent<TestExtent>(g) {
             val innerState1: State<Long> = state(1, "innerState1")
             val innerState2: State<Long> = state(2, "innerState2")
@@ -872,17 +885,61 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
                 dependentState.update(val1 + val2)
             }
         ext.addToGraphWithAction()
-
         assertEquals(dependentState.value, 0)
 
+        // |> When the switching state is given a value
         switchingState.updateWithAction(innerExtent)
 
+        // |> Then the demanding behavior picks up on both subdemands
         assertEquals(dependentState.value, 3)
 
+        // |> And when one of those subdemands is updated
         innerExtent.innerState1.updateWithAction(2)
 
+        // |> Then the demanding behavior runs
         assertEquals(dependentState.value, 4)
+    }
+
+    @Test
+    fun dynamicDemandsThatDependOnSupplyingBehaviorForcesSubsequent() {
+        // NOTE: It is common to demand have a collection of subextents that
+        // is affected by some signal from each extent (like remove)
+        // So we can automatically warn for this.
+        // This is an easy mistake that creates a graph cycle error, and we can
+        // give a more informative error.
+
+        // |> Given we have a dynamic behavior that switches on what we supply
+        class TestExtent(g: Graph) : Extent<TestExtent>(g) {
+            val remove: Moment = moment()
+        }
+        val extents: State<List<TestExtent>> = ext.state(listOf())
+        // |> When we try to build it
+        // |> Then we should get an error alerting that it needs to relink subsequently
+        assertFails {
+            ext.behavior()
+                .supplies(extents)
+                .demands(extents.each() { it.remove })
+                .runs {
+                    // ...removes from list when remove it updated
+                }
+        }
 
     }
 
+    @Test
+    fun onlyOneDynamicDemandable() {
+        class TestExtent(g: Graph) : Extent<TestExtent>(g) {
+            val remove: Moment = moment()
+        }
+        val extents: State<List<TestExtent>> = ext.state(listOf())
+        assertFails {
+            ext.behavior()
+                .supplies()
+                .demands(extents.each() { it.remove }, extents.each { it.remove })
+                .runs {
+                    // ...removes from list when remove it updated
+                }
+        }
+
+    }
 }

@@ -131,7 +131,9 @@ class BehaviorBuilder<T: Any>(
     fun demands(vararg demands: Demandable) = apply {
         for (demand in demands) {
             if (demand is DynamicDemandable<*>) {
-                untrackedDemands.add(demand.switchingResource)
+                extent.graph.bgassert(dynamicDemandable == null) {
+                    "Only one dynamic demand clause allowed."
+                }
                 dynamicDemandable = demand as DynamicDemandable<T>
             } else {
                 untrackedDemands.add(demand)
@@ -139,9 +141,12 @@ class BehaviorBuilder<T: Any>(
         }
     }
     fun demands(demands: List<Demandable>) = apply {
+        // lists make it easier to programmatically add multiple demands
         for (demand in demands) {
             if (demand is DynamicDemandable<*>) {
-                untrackedDemands.add(demand.switchingResource)
+                extent.graph.bgassert(dynamicDemandable == null) {
+                    "Only one dynamic demand clause allowed."
+                }
                 dynamicDemandable = demand as DynamicDemandable<T>
             } else {
                 untrackedDemands.add(demand)
@@ -177,6 +182,9 @@ class BehaviorBuilder<T: Any>(
         relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior,
         links: DemandableLinks<T>
     ) = apply {
+        extent.graph.bgassert(dynamicDemandable == null) {
+            "Only one dynamic demand clause allowed."
+        }
         dynamicDemandable = GenericDynamicDemandable(switch as Resource, relinkingOrder) { ctx, demands ->
             links.invoke(ctx, demands)
         }
@@ -238,6 +246,12 @@ class BehaviorBuilder<T: Any>(
         dynamicDemandable?.let {
             val newDynamicDemandResource = extent.resource("(BG Dynamic Demand Resource)")
             if (it.relinkingOrder == RelinkingOrder.RelinkingOrderPrior || it.relinkingOrder == null) {
+                if (untrackedSupplies.contains(it.switchingResource)) {
+                    extent.graph.bgassert(false) {
+                        "If a behavior has dynamic demands which are based on a supplied resource, then those dynamic demands must be RelinkingOrderSubsequent."
+                    }
+                }
+                untrackedDemands.add(it.switchingResource)
                 untrackedDemands.add(newDynamicDemandResource)
             } else {
                 untrackedSupplies.add(newDynamicDemandResource)

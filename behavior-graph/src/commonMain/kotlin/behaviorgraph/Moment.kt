@@ -75,4 +75,18 @@ class Moment @JvmOverloads constructor(extent: Extent<*>, debugName: String? = n
         return "$localDebugName $localType == $localUpdated ($localSequence)"
     }
 
+    fun observeUpdates(onUpdated: (Event) -> Unit): Behavior<*> {
+        val extent = this.extent as Extent<Any>
+        val observer = extent.behavior()
+            .demands(this)
+            .runs { _ ->
+                this.extent.sideEffect {
+                    onUpdated(this.event!!)
+                }
+            }
+        if (this.extent.addedToGraphWhen != null) {
+            this.extent.graph.addLateBehavior(observer)
+        }
+        return observer
+    }
 }

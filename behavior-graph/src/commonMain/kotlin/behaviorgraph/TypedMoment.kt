@@ -13,10 +13,8 @@ import kotlin.jvm.JvmName
  */
 class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: String? = null): Resource(extent, debugName),
     Transient {
-    private var _happened = false
-    private var _happenedWhen: Event? = null
-    private var _happenedValue: T? = null
-
+    data class Happened<T>(val value: T, val event: Event)
+    private var _happened: Happened<T>? = null
     /**
      * Is there a current event and if the moment updated then what is the associated data.
      * Will return null if the moment did not update this event.
@@ -29,7 +27,7 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
     val value: T?
         get() {
             assertValidAccessor()
-            return this._happenedValue
+            return this._happened?.value
         }
 
     /**
@@ -40,7 +38,7 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
     val event: Event?
         get() {
             assertValidAccessor()
-            return this._happenedWhen
+            return this._happened?.event
         }
 
 
@@ -58,23 +56,22 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
      */
     fun update(value: T) {
         assertValidUpdater()
-        _happened = true
-        _happenedValue = value
-        _happenedWhen = graph.currentEvent
-        graph.resourceTouched(this)
-        graph.trackTransient(this)
+        graph.currentEvent?.let {
+            _happened = Happened(value, it)
+            graph.resourceTouched(this)
+            graph.trackTransient(this)
+        }
     }
 
     override fun clear() {
-        _happenedValue = null
-        _happened = false
+        _happened = null
     }
 
     override fun toString(): String {
         val localDebugName = debugName ?: ""
         val localType = super.toString()
-        val localUpdated = if (_happened) _happenedValue else "NA"
-        val localSequence = _happenedWhen?.sequence ?: "NA"
+        val localUpdated = _happened?.value ?: "NA"
+        val localSequence = _happened?.event?.sequence ?: "NA"
         return "$localDebugName $localType == $localUpdated ($localSequence)"
     }
 
@@ -85,7 +82,7 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
     @get:JvmName("justUpdated")
     val justUpdated: Boolean get() {
         assertValidAccessor()
-        return _happened
+        return _happened != null
     }
 
     override val internalJustUpdated: Boolean get() = justUpdated
@@ -94,7 +91,23 @@ class TypedMoment<T> @JvmOverloads constructor(extent: Extent<*>, debugName: Str
      * Checks if [justUpdated] and if the associated value is `==` to the passed in value.
      */
     fun justUpdatedTo(value: T): Boolean {
-        return this.justUpdated && this._happenedValue == value
+        return this.justUpdated && this._happened?.value == value
     }
 
+    fun observeUpdates(onUpdated: (Pair<T, Event>) -> Unit): Behavior<*> {
+        val extent = this.extent as Extent<Any>
+        val observer = extent.behavior()
+            .demands(this)
+            .runs { _ ->
+                this._happened?.let { happened ->
+                    this.extent.sideEffect {
+                        onUpdated(Pair(happened.value, happened.event))
+                    }
+                }
+            }
+        if (this.extent.addedToGraphWhen != null) {
+            this.extent.graph.addLateBehavior(observer)
+        }
+        return observer
+    }
 }

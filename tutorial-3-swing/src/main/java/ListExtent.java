@@ -43,7 +43,7 @@ public class ListExtent extends Extent<ListExtent> {
         
         behavior()
             .demands(allItems, getDidAdd())
-            .dynamicDemands(new Demandable[]{allItems}, (ctx, demands) -> {
+            .dynamicDemands(new Linkable[]{allItems}, (ctx, demands) -> {
                 for (ItemExtent item: allItems.value()) {
                     demands.add(item.completed);
                 }
@@ -77,7 +77,7 @@ public class ListExtent extends Extent<ListExtent> {
             });
 
         behavior()
-            .dynamicSupplies(new Demandable[]{allItems}, (ctx, supplies) -> {
+            .dynamicSupplies(new Linkable[]{allItems}, (ctx, supplies) -> {
                 for (ItemExtent item: allItems.value()) {
                     supplies.add(item.itemText);
                 }

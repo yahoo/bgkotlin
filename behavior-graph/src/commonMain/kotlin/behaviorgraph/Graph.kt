@@ -416,7 +416,7 @@ class Graph @JvmOverloads constructor(
         modifiedSupplyBehaviors.forEach { behavior ->
             if (validateLifetimes) {
                 behavior.untrackedSupplies?.forEach { existingSupply ->
-                    if (!behavior.extent.hasCompatibleLifetime(existingSupply.extent)) {
+                    if (!behavior.extent.hasCompatibleLifetime(existingSupply.resource.extent)) {
                         bgassert(false) {
                             "Behavior can only supply resources on extents with the unified or parent lifetimes. \nSupplying Behavior=$behavior \nStatic Supply=$existingSupply"
                         }
@@ -424,7 +424,7 @@ class Graph @JvmOverloads constructor(
                 }
             }
 
-            val allUntrackedSupplies: MutableSet<Resource> = mutableSetOf()
+            val allUntrackedSupplies: MutableSet<Linkable> = mutableSetOf()
             behavior.untrackedSupplies?.let {
                 allUntrackedSupplies.addAll(it)
             }
@@ -433,7 +433,7 @@ class Graph @JvmOverloads constructor(
             }
             behavior.supplies?.forEach { it.suppliedBy = null }
 
-            behavior.supplies = allUntrackedSupplies
+            behavior.supplies = allUntrackedSupplies.map { it.resource }.toSet()
             behavior.supplies?.forEach { newSupply: Resource ->
                 if (newSupply.suppliedBy != null && newSupply.suppliedBy !== behavior) {
                     bgassert(false) {
@@ -468,7 +468,7 @@ class Graph @JvmOverloads constructor(
                 }
             }
 
-            val allUntrackedDemands: MutableSet<Demandable> = mutableSetOf()
+            val allUntrackedDemands: MutableSet<Linkable> = mutableSetOf()
             behavior.untrackedDemands?.let {
                 allUntrackedDemands.addAll(it)
             }
@@ -668,7 +668,7 @@ class Graph @JvmOverloads constructor(
         this.untrackedBehaviors.add(behavior)
     }
 
-    internal fun updateDemands(behavior: Behavior<*>, newDemands: List<Demandable>?) {
+    internal fun updateDemands(behavior: Behavior<*>, newDemands: List<Linkable>?) {
         if (behavior.extent.addedToGraphWhen == null) {
             bgassert(false) {
                 "Behavior must belong to graph before updating demands. \nDemanding Behavior=$behavior"
@@ -684,7 +684,7 @@ class Graph @JvmOverloads constructor(
         modifiedDemandBehaviors.add(behavior)
     }
 
-    internal fun updateSupplies(behavior: Behavior<*>, newSupplies: List<Resource>?) {
+    internal fun updateSupplies(behavior: Behavior<*>, newSupplies: List<Linkable>?) {
         if (behavior.extent.addedToGraphWhen == null) {
             bgassert(false) {
                 "Behavior must belong to graph before updating supplies. \nDemanding Behavior=$behavior"

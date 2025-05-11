@@ -15,7 +15,7 @@ import kotlin.js.JsName
  * You may wish to use this Resource to enforce ordering between two behaviors without
  * implying any other relationship.
  */
-open class Resource @JvmOverloads constructor(val extent: Extent<*>, @JsName("debugName") var debugName: String? = null): Demandable {
+open class Resource @JvmOverloads constructor(val extent: Extent<*>, @JsName("debugName") var debugName: String? = null): Linkable {
     val graph: Graph = extent.graph
     @JsName("__bg_isResource") val isResource: Boolean = true // field for javascript based reflection
     internal var subsequents: MutableSet<Behavior<*>> = mutableSetOf()
@@ -30,7 +30,7 @@ open class Resource @JvmOverloads constructor(val extent: Extent<*>, @JsName("de
     }
 
     @get:JvmName("order")
-    val order: Demandable get() = DemandLink(this, LinkType.Order)
+    val order: Linkable get() = DemandLink(this, LinkType.Order)
 
     internal open val internalJustUpdated: Boolean get() = false
 

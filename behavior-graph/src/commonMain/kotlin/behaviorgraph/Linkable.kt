@@ -7,9 +7,9 @@ package behaviorgraph
  * run when the resource is updated. An `Order` type will let the behavior access the demanded resource
  * but it will not necessarily reun when that resource is updated.
  */
-interface Demandable {
+interface Linkable {
     val resource: Resource
     val type: LinkType
 }
 
-data class DemandLink(override val resource: Resource, override val type: LinkType) : Demandable
+data class DemandLink(override val resource: Resource, override val type: LinkType) : Linkable

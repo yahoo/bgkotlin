@@ -2,39 +2,35 @@ package behaviorgraph
 
 import kotlin.jvm.JvmOverloads
 
-fun interface DemandableLinks<T> {
-    fun invoke(ctx: T, demands: MutableList<Demandable?>)
-}
-
-fun interface SuppliableLinks<T> {
-    fun invoke(ctx: T, supplies: MutableList<Resource?>)
+fun interface DynamicLinks<T> {
+    fun invoke(ctx: T, links: MutableList<Linkable?>)
 }
 
 
-interface DynamicDemandable<T> : Demandable {
-    val switchingResource: Resource // not used, just for compatibility with Demandable interface
+interface DynamicLinkable<T> : Linkable {
+    val switchingResources: List<Linkable> // not used, just for compatibility with Demandable interface
     val relinkingOrder: RelinkingOrder? // not used, just for compatibility with Demandable interface
-    fun appendDemands(graph: Graph, ctx: T, demands: MutableList<Demandable?>)
+    fun appendDemands(graph: Graph, ctx: T, demands: MutableList<Linkable?>)
 
     override val resource: Resource
-        get() = switchingResource
+        get() = switchingResources[0].resource
 
     override val type: LinkType
         get() = LinkType.Reactive
 
 
-    fun addResultsToDemands(graph: Graph, results: Any?, demands: MutableList<Demandable?>) {
+    fun addResultsToDemands(graph: Graph, results: Any?, demands: MutableList<Linkable?>) {
         results?.let {
             when (it) {
                 is Iterable<*> -> {
                     for (resourceElement in it) {
                         if (resourceElement != null) {
-                            demands.add(resourceElement as Demandable)
+                            demands.add(resourceElement as Linkable)
                         }
                     }
                 }
 
-                is Demandable -> {
+                is Linkable -> {
                     demands.add(it)
                 }
 
@@ -42,7 +38,7 @@ interface DynamicDemandable<T> : Demandable {
                     graph.bgassert(false, {
                         "DynamicDemandable must return an Iterable<Demandable> or Demandable from dynamicResources. \n" +
                                 "Received: $it \n" +
-                                "State: $switchingResource"
+                                "State: $switchingResources[0]"
                     })
                 }
             }
@@ -50,36 +46,36 @@ interface DynamicDemandable<T> : Demandable {
     }
 }
 
-internal class GenericDynamicDemandable<T>(
-    override val switchingResource: Resource,
+internal class GenericDynamicLinkable<T>(
+    override val switchingResources: List<Linkable>,
     override val relinkingOrder: RelinkingOrder?,
-    private val dynamicResources: (ctx: T, MutableList<Demandable?>) -> Unit
-) : DynamicDemandable<T> {
-    override fun appendDemands(graph: Graph, ctx: T, demands: MutableList<Demandable?>) {
+    private val dynamicResources: (ctx: T, MutableList<Linkable?>) -> Unit
+) : DynamicLinkable<T> {
+    override fun appendDemands(graph: Graph, ctx: T, demands: MutableList<Linkable?>) {
         dynamicResources(ctx, demands)
     }
 }
 
-internal class SelectDynamicDemandable<T: Extent<*>>(
-    override val switchingResource: State<T?>,
+internal class SelectDynamicLinkable<T: Extent<*>>(
+    override val switchingResources: List<State<T?>>,
     override val relinkingOrder: RelinkingOrder?,
     private val dynamicResources: (T) -> Any?
-) : DynamicDemandable<Any> {
-    override fun appendDemands(graph: Graph, ctx: Any, demands: MutableList<Demandable?>) {
-        switchingResource.value?.let {
+) : DynamicLinkable<Any> {
+    override fun appendDemands(graph: Graph, ctx: Any, demands: MutableList<Linkable?>) {
+        switchingResources[0].value?.let {
             dynamicResources(it)?.let { results ->
                 addResultsToDemands(graph, results, demands)
             }
         }
     }
 }
-internal class EachDynamicDemandable<T: Extent<*>>(
-    override val switchingResource: State<out Iterable<T>>,
+internal class EachDynamicLinkable<T: Extent<*>>(
+    override val switchingResources: List<State<out Iterable<T>>>,
     override val relinkingOrder: RelinkingOrder?,
     private val dynamicResources: (T) -> Any?
-) : DynamicDemandable<Any> {
-    override fun appendDemands(graph: Graph, ctx: Any, demands: MutableList<Demandable?>) {
-        switchingResource.value.forEach {
+) : DynamicLinkable<Any> {
+    override fun appendDemands(graph: Graph, ctx: Any, demands: MutableList<Linkable?>) {
+        switchingResources[0].value.forEach {
             dynamicResources(it)?.let { results ->
                 addResultsToDemands(graph, results, demands)
             }
@@ -90,15 +86,15 @@ internal class EachDynamicDemandable<T: Extent<*>>(
 internal fun <T: Extent<*>> State<T?>.select(
     relinkingOrder: RelinkingOrder? = null,
     dynamicResources: (T) -> Any?
-): DynamicDemandable<*> {
-    return SelectDynamicDemandable(this, relinkingOrder, dynamicResources)
+): DynamicLinkable<*> {
+    return SelectDynamicLinkable(listOf(this), relinkingOrder, dynamicResources)
 }
 
 internal fun <T:Extent<*>, U: Iterable<T>> State<out U>.each(
     relinkingOrder: RelinkingOrder? = null,
     dynamicResources: (T) -> Any?
-): DynamicDemandable<*> {
-    return EachDynamicDemandable(this, relinkingOrder, dynamicResources)
+): DynamicLinkable<*> {
+    return EachDynamicLinkable(listOf(this), relinkingOrder, dynamicResources)
 }
 
 /**
@@ -118,36 +114,29 @@ internal fun <T:Extent<*>, U: Iterable<T>> State<out U>.each(
 class BehaviorBuilder<T: Any>(
     internal val extent: Extent<T>
 ) {
-    private var untrackedDemands: MutableList<Demandable> = mutableListOf()
-    private var untrackedSupplies: MutableList<Resource> = mutableListOf()
-    private var dynamicDemandable: DynamicDemandable<T>? = null
-    private var dynamicSupplySwitches: List<Demandable>? = null
-    private var dynamicSupplyLinks: SuppliableLinks<T>? = null
-    private var dynamicSupplyRelinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior
+    private var untrackedDemands: MutableList<Linkable> = mutableListOf()
+    private var untrackedSupplies: MutableList<Linkable> = mutableListOf()
+    private var dynamicDemandable: DynamicLinkable<T>? = null
+    private var dynamicSuppliable: DynamicLinkable<T>? = null
 
     /**
      * Optional clause to include set of static (unchanging) demands this behavior will depend on.
      */
-    fun demands(vararg demands: Demandable) = apply {
-        for (demand in demands) {
-            if (demand is DynamicDemandable<*>) {
-                extent.graph.bgassert(dynamicDemandable == null) {
-                    "Only one dynamic demand clause allowed."
-                }
-                dynamicDemandable = demand as DynamicDemandable<T>
-            } else {
-                untrackedDemands.add(demand)
-            }
-        }
+    fun demands(vararg demands: Linkable) = apply {
+        internalAddDemands(demands.toList())
     }
-    fun demands(demands: List<Demandable>) = apply {
+    fun demands(demands: List<Linkable>) = apply {
         // lists make it easier to programmatically add multiple demands
+        internalAddDemands(demands)
+    }
+
+    private fun internalAddDemands(demands: Iterable<Linkable>) {
         for (demand in demands) {
-            if (demand is DynamicDemandable<*>) {
+            if (demand is DynamicLinkable<*>) {
                 extent.graph.bgassert(dynamicDemandable == null) {
                     "Only one dynamic demand clause allowed."
                 }
-                dynamicDemandable = demand as DynamicDemandable<T>
+                dynamicDemandable = demand as DynamicLinkable<T>
             } else {
                 untrackedDemands.add(demand)
             }
@@ -157,9 +146,25 @@ class BehaviorBuilder<T: Any>(
     /**
      * Optional clause to include a set of static (unchanging) supplies this behavior will be responsible for.
      */
-    fun supplies(vararg supplies: Resource) = apply { untrackedSupplies.addAll(supplies) }
-    fun supplies(supplies: List<Resource>) = apply { untrackedSupplies.addAll(supplies) }
+    fun supplies(vararg supplies: Linkable) = apply {
+        internalAddSupplies(supplies.toList())
+    }
+    fun supplies(supplies: List<Linkable>) = apply {
+        internalAddSupplies(supplies)
+    }
 
+    private fun internalAddSupplies(supplies: Iterable<Linkable>) {
+        for (supply in supplies) {
+            if (supply is DynamicLinkable<*>) {
+                extent.graph.bgassert(dynamicSuppliable == null) {
+                    "Only one dynamic supply clause allowed."
+                }
+                dynamicSuppliable = supply as DynamicLinkable<T>
+            } else {
+                untrackedSupplies.add(supply)
+            }
+        }
+    }
     /**
      * Optional clause to include a set of demands which can change based on other resources changing.
      *
@@ -178,18 +183,31 @@ class BehaviorBuilder<T: Any>(
      */
     @JvmOverloads
     fun dynamicDemands(
-        switch: Demandable,
+        switches: List<Linkable>,
         relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior,
-        links: DemandableLinks<T>
+        links: DynamicLinks<T>
     ) = apply {
         extent.graph.bgassert(dynamicDemandable == null) {
             "Only one dynamic demand clause allowed."
         }
-        dynamicDemandable = GenericDynamicDemandable(switch as Resource, relinkingOrder) { ctx, demands ->
+        dynamicDemandable = GenericDynamicLinkable(switches, relinkingOrder) { ctx, demands ->
             links.invoke(ctx, demands)
         }
     }
 
+    @JvmOverloads
+    fun dynamicDemands(
+        vararg switches: Linkable,
+        relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior,
+        links: DynamicLinks<T>
+    ) = apply {
+        extent.graph.bgassert(dynamicDemandable == null) {
+            "Only one dynamic demand clause allowed."
+        }
+        dynamicDemandable = GenericDynamicLinkable(switches.toList(), relinkingOrder) { ctx, demands ->
+            links.invoke(ctx, demands)
+        }
+    }
     /**
      * Optional clause to include a set of supplies which can change based on other resources changing
      *
@@ -209,23 +227,30 @@ class BehaviorBuilder<T: Any>(
      */
     @JvmOverloads
     fun dynamicSupplies(
-        switches: List<Demandable>,
+        switches: List<Linkable>,
         relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior,
-        links: SuppliableLinks<T>
+        links: DynamicLinks<T>
     ) = apply {
-        dynamicSupplySwitches = switches
-        dynamicSupplyLinks = links
-        dynamicSupplyRelinkingOrder = relinkingOrder
+        extent.graph.bgassert(dynamicSuppliable == null) {
+            "Only one dynamic supply clause allowed."
+        }
+        dynamicSuppliable = GenericDynamicLinkable(switches, relinkingOrder) { ctx, demands ->
+            links.invoke(ctx, demands)
+        }
     }
+
     @JvmOverloads
     fun dynamicSupplies(
-        vararg switches: Demandable,
+        vararg switches: Linkable,
         relinkingOrder: RelinkingOrder = RelinkingOrder.RelinkingOrderPrior,
-        links: SuppliableLinks<T>
+        links: DynamicLinks<T>
     ) = apply {
-        dynamicSupplySwitches = switches.asList()
-        dynamicSupplyLinks = links
-        dynamicSupplyRelinkingOrder = relinkingOrder
+        extent.graph.bgassert(dynamicSuppliable == null) {
+            "Only one dynamic supply clause allowed."
+        }
+        dynamicSuppliable = GenericDynamicLinkable(switches.asList(), relinkingOrder) { ctx, demands ->
+            links.invoke(ctx, demands)
+        }
     }
 
     /**
@@ -242,71 +267,124 @@ class BehaviorBuilder<T: Any>(
      * behavior later.
      */
     fun runs(thunk: ExtentThunk<T>): Behavior<T> {
+        // When we have dynamic demands/supplies we will create separate behaviors
+        // to do that relinking. So first we will create some additional resources
+        // that force the relinking behaviors to proprerly order themselves beofre or
+        // after the main behavior. (We will need these resources when we create that
+        // main behavior, so we figure that out first).
+
+        // 1. Handle dynamic demand clause
         var dynamicDemandResource: Resource? = null
         dynamicDemandable?.let {
             val newDynamicDemandResource = extent.resource("(BG Dynamic Demand Resource)")
             if (it.relinkingOrder == RelinkingOrder.RelinkingOrderPrior || it.relinkingOrder == null) {
-                if (untrackedSupplies.contains(it.switchingResource)) {
-                    extent.graph.bgassert(false) {
-                        "If a behavior has dynamic demands which are based on a supplied resource, then those dynamic demands must be RelinkingOrderSubsequent."
-                    }
-                }
-                untrackedDemands.add(it.switchingResource)
+
+                validateSwitchingResourcesNotSupplied(it.switchingResources, "demands")
+
+                // If relinking is prior, then we will demand the ordering resource to make sure our main behavior comes after
                 untrackedDemands.add(newDynamicDemandResource)
+
             } else {
+                // if subsequent, then we will supply the ordering resource to make sure our main behavior comes before
                 untrackedSupplies.add(newDynamicDemandResource)
             }
             dynamicDemandResource = newDynamicDemandResource
-        }
 
-        var dynamicSupplyResource: Resource? = null
-        if (dynamicSupplySwitches != null) {
-            dynamicSupplyResource = extent.resource("(BG Dynamic Supply Resource)")
-            if (dynamicSupplyRelinkingOrder == RelinkingOrder.RelinkingOrderPrior) {
-                untrackedDemands.add(dynamicSupplyResource)
-            } else {
-                untrackedSupplies.add(dynamicSupplyResource)
+            if (it is SelectDynamicLinkable<*> || it is EachDynamicLinkable<*>) {
+                // The select/each dynamic linkables are designed for compactness so
+                // we can assume we will also demand the switching resource becuase we almost
+                // always need it in the main behavior to iterate over.
+                // But we don't want to do this for the more expressive dynamic demand clauses
+                // to enable full flexibility (like sometimes using trace demands to eliminate more complex cycles)
+                untrackedDemands.addAll(it.switchingResources) // there will only be one
             }
         }
 
+        // 2. Handle dynamic supply clause, similar to above
+        var dynamicSupplyResource: Resource? = null
+        dynamicSuppliable?.let {
+            val newDynamicSupplyResource = extent.resource("(BG Dynamic Supply Resource)")
+            if (it.relinkingOrder == RelinkingOrder.RelinkingOrderPrior || it.relinkingOrder == null) {
+                validateSwitchingResourcesNotSupplied(it.switchingResources, "supplies")
+
+                // if relinking is prior, then we will demand the ordering resource to make sure our main behavior comes after
+                untrackedDemands.add(newDynamicSupplyResource)
+
+            } else {
+                // if relinking is subsequent, then our relinking behavior will come after the main behavior
+                untrackedSupplies.add(newDynamicSupplyResource)
+            }
+            dynamicSupplyResource = newDynamicSupplyResource
+
+            // see dynamic demands above for explanation
+            if (it is SelectDynamicLinkable<*> || it is EachDynamicLinkable<*>) {
+                untrackedDemands.addAll(it.switchingResources) // there will only be one
+            }
+        }
+
+        // 3. Create the main behavior
         val mainBehavior = Behavior(extent, untrackedDemands, untrackedSupplies, thunk)
         extent.addBehavior(mainBehavior)
 
+
+        // 4. Create behavior to do dynamic demand relinking
         dynamicDemandable?.let { dynamicDemandable ->
-            var supplies: List<Resource>? = null
-            val demands: MutableList<Demandable> = mutableListOf()
-            demands.add(dynamicDemandable.switchingResource)
+            var supplies: List<Linkable>? = null
+            val demands: MutableList<Linkable> = mutableListOf()
+            // relinking behavior activates on switching resources
+            demands.addAll(dynamicDemandable.switchingResources)
+
             if (dynamicDemandable.relinkingOrder == RelinkingOrder.RelinkingOrderPrior || dynamicDemandable.relinkingOrder == null) {
+                // if relinking is prior, then we supply the ordering resource to make sure we come first
+                // (main behavior will demand it)
                 dynamicDemandResource?.let { resource -> supplies = listOf(resource) }
             } else {
+                // if subsequent, we demand it so we come after (main behavior will supply it)
                 dynamicDemandResource?.let { resource -> demands.add(resource) }
             }
+            // create the behavior that determines new demands each time it runs
             val orderingBehavior = Behavior(extent, demands, supplies) {
-                val mutableListOfDemands = mutableListOf<Demandable?>()
+                val mutableListOfDemands = mutableListOf<Linkable?>()
                 dynamicDemandable.appendDemands(extent.graph, it, mutableListOfDemands)
                 mainBehavior.setDynamicDemands(mutableListOfDemands)
             }
             extent.addBehavior(orderingBehavior)
         }
 
-        if (dynamicSupplySwitches != null) {
-            var supplies: List<Resource>? = null
-            val demands: MutableList<Demandable> = mutableListOf()
-            dynamicSupplySwitches?.let { demands.addAll(it) }
-            if (dynamicSupplyRelinkingOrder == RelinkingOrder.RelinkingOrderPrior) {
+        // 5. Create behavior to do dynamic supply relinking
+        dynamicSuppliable?.let { dynamicSuppliable ->
+            var supplies: List<Linkable>? = null
+            val demands: MutableList<Linkable> = mutableListOf()
+            demands.addAll(dynamicSuppliable.switchingResources)
+            if (dynamicSuppliable.relinkingOrder == RelinkingOrder.RelinkingOrderPrior || dynamicSuppliable.relinkingOrder == null) {
                 dynamicSupplyResource?.let { supplies = listOf(it) }
             } else {
                 dynamicSupplyResource?.let { demands.add(it) }
             }
             val orderingBehavior = Behavior(extent, demands, supplies) {
-                val mutableListOfSupplies = mutableListOf<Resource?>()
-                dynamicSupplyLinks?.invoke(it, mutableListOfSupplies)
+                val mutableListOfSupplies = mutableListOf<Linkable?>()
+                dynamicSuppliable.appendDemands(extent.graph, it, mutableListOfSupplies)
                 mainBehavior.setDynamicSupplies(mutableListOfSupplies)
             }
             extent.addBehavior(orderingBehavior)
         }
 
         return mainBehavior
+    }
+
+    fun validateSwitchingResourcesNotSupplied(switchingResources: List<Linkable>, section: String) {
+        // It is easy to supply a resource that we also depend on in our dynamic demands
+        // This will create a cycle, but we can check for it here and give a better warning.
+        var suppliesContainsSwitching = false
+        for (resource in switchingResources) {
+            if (untrackedSupplies.contains(resource)) {
+                suppliesContainsSwitching = true
+                break
+            }
+        }
+        extent.graph.bgassert(!suppliesContainsSwitching) {
+            "If a behavior has dynamic $section which are based on a supplied resource, then those dynamic $section must be RelinkingOrderSubsequent."
+        }
     }
 }
 

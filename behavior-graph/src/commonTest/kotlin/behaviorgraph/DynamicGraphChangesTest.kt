@@ -351,6 +351,10 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
 
     @Test
     fun dynamicDemandsClauseUpdatesDemands() {
+        // NOTE: dynamicDemands clause does not automatically include switches in
+        // the list of demands, however inline dynamic demands do because they are
+        // specifically designed for compactness.
+
         // |> Given a behavior with dynamicDemands
         val m1 = ext.moment()
         val m2 = ext.moment()
@@ -370,7 +374,7 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
             }
         ext.addToGraphWithAction()
 
-        // |> When net yet demanded resource is updated
+        // |> When not yet demanded resource is updated
         m3.updateWithAction()
 
         // |> Then behavior is not run
@@ -380,16 +384,16 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
         m2.updateWithAction()
         m3.updateWithAction()
 
-        // |> Then behavior will be run twice
+        // |> Then behavior will be run only after m2 updates
         // once for m2 which is automatically included as a demand
         // and once for m3 which was added when m2 ws updated
-        assertEquals(2,runCount)
+        assertEquals(1,runCount)
 
         // |> And when we update original static resource
         m1.updateWithAction()
 
         // |> Then we expect behavior to also run
-        assertEquals(3,runCount)
+        assertEquals(2,runCount)
 
         // |> Relink behavior should be a prior to its behavior
         // This ensures that relinking happens before behavior is run
@@ -940,6 +944,51 @@ class DynamicGraphChangesTest : AbstractBehaviorGraphTest() {
                     // ...removes from list when remove it updated
                 }
         }
+    }
 
+    @Test
+    fun inlineDynamicSupplies() {
+        // |> Given we have a behavior with inline dynamic supplies
+        class TestExtent(g: Graph) : Extent<TestExtent>(g) {
+            val thingHappened: State<Boolean> = this.state(false)
+        }
+        val extents: State<List<TestExtent>> = ext.state(listOf())
+        val happenedMoment = ext.typedMoment<Boolean>()
+
+        ext.behavior()
+            .supplies(extents.each { it.thingHappened })
+            .demands(happenedMoment)
+            .runs {
+                if (happenedMoment.justUpdated) {
+                    extents.value.forEach {
+                        it.thingHappened.update(happenedMoment.value!!)
+                    }
+                }
+            }
+        ext.addToGraphWithAction()
+
+        // |> When our collection is updated
+        val ext1 = TestExtent(g)
+        val ext2 = TestExtent(g)
+        g.action {
+            ext1.addToGraph()
+            ext2.addToGraph()
+        }
+        extents.updateWithAction(listOf(ext1, ext2))
+        // and our behavior is run
+        happenedMoment.updateWithAction(true)
+
+        // |> Then the subextents are updated
+        assertTrue(ext1.thingHappened.value)
+        assertTrue(ext2.thingHappened.value)
+
+        // |> When we update the collection to only one thing
+        extents.updateWithAction(listOf(ext1))
+        // and our behavior is run
+        happenedMoment.updateWithAction(false)
+
+        // |> Then only one behavior is updated
+        assertFalse(ext1.thingHappened.value)
+        assertTrue(ext2.thingHappened.value)
     }
 }

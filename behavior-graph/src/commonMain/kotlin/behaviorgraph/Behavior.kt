@@ -10,7 +10,7 @@ package behaviorgraph
  * @property extent A behavior always has an [Extent] with which it is created.
  */
 class Behavior<T: Any>(
-    val extent: Extent<T>, demands: List<Demandable>?, supplies: List<Resource>?,
+    val extent: Extent<T>, demands: List<Linkable>?, supplies: List<Linkable>?,
     internal var thunk: ExtentThunk<T>
 ) : Comparable<Behavior<*>> {
     /**
@@ -31,10 +31,10 @@ class Behavior<T: Any>(
     var order: Long = 0
         internal set
 
-    internal var untrackedDemands: List<Demandable>?
-    internal var untrackedDynamicDemands: List<Demandable>? = null
-    internal var untrackedSupplies: List<Resource>?
-    internal var untrackedDynamicSupplies: List<Resource>? = null
+    internal var untrackedDemands: List<Linkable>?
+    internal var untrackedDynamicDemands: List<Linkable>? = null
+    internal var untrackedSupplies: List<Linkable>?
+    internal var untrackedDynamicSupplies: List<Linkable>? = null
 
     init {
         this.untrackedDemands = demands
@@ -46,7 +46,7 @@ class Behavior<T: Any>(
     }
 
     override fun toString(): String {
-        var rows = mutableListOf<String>("Behavior")
+        val rows = mutableListOf<String>("Behavior")
         supplies?.forEachIndexed { index, resource ->
             if (index == 0) {
                 rows.add(" Supplies:")
@@ -65,28 +65,28 @@ class Behavior<T: Any>(
     /**
      * Provide an array of Demandables. undefined is also an element type to make for easier use of optional chaining. Providing null is equivalent to saying there are no dynamic demands.
      */
-    fun setDynamicDemands(vararg newDemands: Demandable) {
+    fun setDynamicDemands(vararg newDemands: Linkable) {
         setDynamicDemands(newDemands.asList())
     }
 
     /**
      * Provide an array of Demandables. undefined is also an element type to make for easier use of optional chaining. Providing null is equivalent to saying there are no dynamic demands.
      */
-    fun setDynamicDemands(newDemands: List<Demandable?>?) {
+    fun setDynamicDemands(newDemands: List<Linkable?>?) {
         this.extent.graph.updateDemands(this, newDemands?.filterNotNull())
     }
 
     /**
      * Provide an array of Resources to supply. undefined is also an element type to make for easier use of optional chaining. Providing null is equivalent to saying there are no dynamic supplies.
      */
-    fun setDynamicSupplies(vararg newSupplies: Resource) {
+    fun setDynamicSupplies(vararg newSupplies: Linkable) {
         setDynamicSupplies(newSupplies.asList())
     }
 
     /**
      * Provide an array of Resources to supply. undefined is also an element type to make for easier use of optional chaining. Providing null is equivalent to saying there are no dynamic supplies.
      */
-    fun setDynamicSupplies(newSupplies: List<Resource?>?) {
+    fun setDynamicSupplies(newSupplies: List<Linkable?>?) {
         this.extent.graph.updateSupplies(this, newSupplies?.filterNotNull())
     }
 

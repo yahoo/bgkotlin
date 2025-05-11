@@ -368,11 +368,25 @@ class Graph @JvmOverloads constructor(
     }
 
     private fun runNextBehavior(sequence: Long) {
-        val behavior: Behavior<Any>? = activatedBehaviors.pop() as Behavior<Any>?
-        behavior?.let {
-            if (it.removedWhen != sequence) {
-                currentBehavior = it
-                behavior.thunk.invoke(it.extent.context ?: it.extent)
+        // We run all with the same order so we don't have to resort multiple times if same ordered
+        // behaviors all change the graph, which can happen when we update switching behaviors
+        // which cause multiple relinking behaviors to run. We only want one big resort at that point.
+        val behaviorsToRun = mutableListOf<Behavior<Any>>()
+        // It's necessary to collect the behaviors first before running any.
+        // This is because running any of them may result in new behaviors getting added.
+        // And they may have the same order (always 0?) as the ones we are running, but they
+        // haven't been through the ordering process.
+        // (An alternative might be to just queue up adding extents until the next part of the event loop)
+        activatedBehaviors.peek()?.order?.let { order ->
+            while (activatedBehaviors.size > 0 && activatedBehaviors.peek()?.order == order) {
+                val behavior: Behavior<Any> = activatedBehaviors.pop() as Behavior<Any>
+                behaviorsToRun.add(behavior)
+            }
+        }
+        for (behavior in behaviorsToRun) {
+            if (behavior.removedWhen != sequence) {
+                currentBehavior = behavior
+                behavior.thunk.invoke(behavior.extent.context ?: behavior.extent)
                 currentBehavior = null
             }
         }

@@ -3,6 +3,7 @@ local.properties
 .idea
 build
 .DS_Store
+.kotlin
 
 # Compiled class file
 *.class
